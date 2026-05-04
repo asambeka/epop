@@ -9,8 +9,8 @@ number:
 date:
 consensus: true
 v: 3
-area: SEC
-workgroup: OAuth Working Group
+area: "Security"
+workgroup: "Web Authorization Protocol"
 keyword:
  - EPOP
  - oauth
@@ -19,7 +19,7 @@ keyword:
  - token binding
 
 venue:
-  group: "oauth"
+  group: "Web Authorization Protocol"
   type: "Working Group"
   mail: "oauth@ietf.org"
   arch: "https://mailarchive.ietf.org/arch/browse/oauth/"
