@@ -2,37 +2,42 @@
 
 
 
-OAuth Working Group                                           A. Ambekar
+Web Authorization Protocol                                    A. Ambekar
 Internet-Draft                                                      eBay
-Intended status: Standards Track                              4 May 2026
-Expires: 5 November 2026
+Intended status: Standards Track                              5 May 2026
+Expires: 6 November 2026
 
 
-           Enveloped Proof of Possession (EPOP) for OAuth 2.0
+JSON Web Token (JWT) Profile for OAuth 2.0 Enveloped Proof of Possession
+                                 (EPOP)
                     draft-ambekar-oauth-epop-latest
 
 Abstract
 
-   This document specifies Enveloped Proof of Possession (EPOP), a
-   "proof-first" security model for OAuth 2.0 in which an EPOP JWT (type
-   epop+jwt) serves as the outer cryptographic envelope, nesting the
-   OAuth credential — an authorization code, access token, or refresh
-   token — within its ntk (Nested Token) claim.  By decoupling the
-   cryptographic proof from transport-specific headers, EPOP produces a
-   single, unified credential that operates transparently across HTTP
-   and non-HTTP transports alike, including MQTT, Kafka, the Model
-   Context Protocol (MCP), and SASL-based protocols such as those
-   defined in [RFC7628].  EPOP extends [RFC9449] (DPoP) by replacing
-   HTTP-specific htm/htu claims with a protocol-neutral rctx (Request
-   Context) object, embedding the credential within the proof rather
-   than alongside it, and introducing an offline-derived client nonce
-   (cnonce) that eliminates the server-issued nonce acquisition round-
-   trip and enables stateless nonce handling and validation; to support
-   SASL-based protocols, this document further defines OAUTHEPOP, a new
-   mechanism extending [RFC7628] with sender-constraining support.  EPOP
-   also defines a mechanism for cryptographic key rotation during the
-   refresh token exchange, enabling secure long-term key management
-   without interrupting active sessions.
+   This specification defines a profile for OAuth 2.0 ([RFC6749])
+   credentials — authorization codes, access tokens, and refresh tokens
+   — issued as enveloped JSON Web Tokens (JWT) ([RFC7519]) with sender-
+   constraining proof of possession.  Authorization servers, resource
+   servers, and clients from different vendors can leverage this profile
+   to issue, transmit, and validate sender-constrained tokens in an
+   interoperable manner across HTTP and non-HTTP transports alike,
+   including MQTT, Kafka, the Model Context Protocol (MCP), and SASL-
+   based protocols such as those defined in [RFC7628].
+
+   The profile defines the epop+jwt token type, in which access tokens
+   and refresh tokens are nested within the ntk (Nested Token) claim of
+   a signed JWT envelope.  In authorization code exchange flows, the
+   authorization code travels as the standard code form parameter and
+   the EPOP token provides only cnf.jkt key binding.  For all other
+   flows, the client's proof of key possession and the credential are a
+   single, inseparable cryptographic object.  The profile introduces a
+   protocol-neutral rctx (Request Context) object in place of the HTTP-
+   specific htm/htu claims of [RFC9449], an offline-derived client nonce
+   (cnonce) that eliminates the server-issued nonce round-trip and
+   enables stateless nonce validation, and a mechanism for cryptographic
+   key rotation during the refresh token exchange.  To support SASL-
+   based protocols, this document further defines OAUTHEPOP, a new SASL
+   mechanism extending [RFC7628] with sender-constraining support.
 
 About This Document
 
@@ -43,10 +48,10 @@ About This Document
    Status information for this document may be found at
    https://datatracker.ietf.org/doc/draft-ambekar-oauth-epop/.
 
-   Discussion of this document takes place on the oauth Working Group
-   mailing list (mailto:oauth@ietf.org), which is archived at
-   https://mailarchive.ietf.org/arch/browse/oauth/.  Subscribe at
-   https://www.ietf.org/mailman/listinfo/oauth/.
+   Discussion of this document takes place on the Web Authorization
+   Protocol Working Group mailing list (mailto:oauth@ietf.org), which is
+   archived at https://mailarchive.ietf.org/arch/browse/oauth/.
+   Subscribe at https://www.ietf.org/mailman/listinfo/oauth/.
 
    Source for this draft and an issue tracker can be found at
    https://github.com/asambeka/epop.
@@ -66,7 +71,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 5 November 2026.
+   This Internet-Draft will expire on 6 November 2026.
 
 Copyright Notice
 
@@ -87,15 +92,17 @@ Table of Contents
    1.  Introduction
      1.1.  Comparison with DPoP
    2.  Conventions and Definitions
-   3.  EPOP Token Structure
+     2.1.  Conformance
+   3.  EPOP Token Profile
      3.1.  Header
        3.1.1.  Algorithm Selection
      3.2.  Payload
      3.3.  ntk Claim Values
-   4.  Creating an EPOP Token
-     4.1.  Prerequisites
-     4.2.  Construction
-     4.3.  Inner EPOP Token for Key Rotation
+   4.  Issuing and Constructing EPOP Tokens
+     4.1.  Issuing EPOP Tokens
+     4.2.  Client Prerequisites
+     4.3.  Constructing EPOP Tokens
+     4.4.  Inner EPOP Token for Key Rotation
    5.  Validating an EPOP Token
      5.1.  Authorization Server Validation
      5.2.  Resource Server Validation
@@ -118,6 +125,8 @@ Table of Contents
    10. Authorization Server Bound Flows
      10.1.  UserInfo Endpoint
      10.2.  Token Introspection
+       10.2.1.  Mode 1: Inner Token Introspection
+       10.2.2.  Mode 2: Full EPOP Token Introspection
      10.3.  Token Exchange
      10.4.  Token Revocation
      10.5.  Pushed Authorization Requests
@@ -139,72 +148,65 @@ Table of Contents
      12.3.  Server Validation
      12.4.  Advantages over RFC 9449 Nonce
      12.5.  Seed Rotation
-   13. Security Considerations
-     13.1.  Summary
-     13.2.  Private Key Protection
-     13.3.  Token Substitution Attacks
-     13.4.  Cross-Protocol Replay
-     13.5.  Key Rotation Security
-   14. IANA Considerations
-     14.1.  HTTP Authentication Scheme Registration
-     14.2.  JWT Claims Registration
-     14.3.  JWT Type Registration
-     14.4.  OAuth Authorization Server Metadata
-     14.5.  OAuth Protected Resource Metadata
-     14.6.  SASL Mechanism Registration
-   15. References
-     15.1.  Normative References
-     15.2.  Informative References
-   Appendix A.  Relationship to Other Specifications
+   13. Relationship to Other Specifications
+   14. Security Considerations
+     14.1.  Summary
+     14.2.  Private Key Protection
+     14.3.  Token Substitution Attacks
+     14.4.  Cross-Protocol Replay
+     14.5.  Key Rotation Security
+   15. Privacy Considerations
+     15.1.  Credential Visibility in Logs
+     15.2.  Key Identifier as Tracking Vector
+     15.3.  Resource URI Disclosure
+     15.4.  Minimal Disclosure
+   16. IANA Considerations
+     16.1.  HTTP Authentication Scheme Registration
+     16.2.  JWT Claims Registration
+     16.3.  JWT Type Registration
+     16.4.  OAuth Authorization Server Metadata
+     16.5.  OAuth Protected Resource Metadata
+     16.6.  SASL Mechanism Registration
+   17. References
+     17.1.  Normative References
+     17.2.  Informative References
    Acknowledgments
    Author's Address
 
 1.  Introduction
 
-   Enveloped Proof of Possession (EPOP) functions as a proof-first
-   credential model for OAuth 2.0 ([RFC6749]) in which the OAuth
-   credential — an authorization code, access token, or refresh token —
-   is embedded _inside_ a signed JSON Web Token (JWT) ([RFC7519]) proof
-   rather than transmitted alongside it.  The client constructs an EPOP
-   token, a JWT with typ: epop+jwt, nesting the credential within its
-   ntk (Nested Token) claim and signing the entire envelope with the
-   client's private key.  Because the credential is bound inside the
-   signed structure, recipients verifying the EPOP token authenticate
-   both key possession and the credential in a single operation: there
-   is no credential without a proof, and no proof without a credential.
+   The OAuth 2.0 framework ([RFC6749]) does not mandate a format for
+   sender-constrained tokens that operates across both HTTP and non-HTTP
+   transports.  DPoP ([RFC9449]) introduced sender-constraining for HTTP
+   environments; SASL OAuth mechanisms ([RFC7628]) extended OAuth token
+   usage to protocols such as IMAP and SMTP; yet no interoperable
+   profile exists that unifies sender-constraining, credential
+   enveloping, and transport agnosticism in a single token format.
 
-   OAuth 2.0 access tokens are bearer tokens by default: any party in
-   possession of a token can use it until it expires.  DPoP ([RFC9449])
-   addressed token theft in HTTP environments by binding access tokens
-   to a client's public key and requiring a fresh signed proof on each
-   request.  However, DPoP has structural limitations that prevent it
-   from serving as a general proof-of-possession mechanism: its htm and
-   htu claims are HTTP-specific and carry no meaning over MQTT, Kafka,
-   gRPC, SASL, or the Model Context Protocol (MCP); the credential and
-   proof travel as separate objects in distinct headers and can be
-   intercepted and recombined independently; proof-of-possession is not
-   extended to authorization codes or refresh tokens; and server-issued
-   nonces require an initial round-trip and distributed server-side
-   nonce state.  SASL-based deployments built on [RFC7628] face an
-   additional gap: bearer tokens reach non-HTTP servers with no
-   mechanism for the client to prove it is the intended holder.
+   This specification addresses that gap by defining a profile for OAuth
+   2.0 credentials issued as enveloped JSON Web Tokens (JWT)
+   ([RFC7519]).  The profile defines the epop+jwt token type, in which
+   an EPOP token nests the OAuth credential within its ntk (Nested
+   Token) claim and signs the entire structure with the client's private
+   key.  Authorization servers, resource servers, and clients from
+   different vendors can implement this profile to issue, transmit, and
+   validate sender-constrained tokens in an interoperable manner.
 
-   EPOP addresses these limitations through a single architectural
-   shift: embedding the credential inside the proof.  Because the
-   credential lives inside the signed epop+jwt envelope, it is
-   inseparable from the proof and covers authorization codes, access
-   tokens, and refresh tokens alike.  The HTTP-specific htm/htu claims
-   are replaced by a protocol-neutral rctx (Request Context) object — a
-   URI or URN identifying the resource and a free-form action string —
-   enabling operation across any transport without protocol-specific
-   adaptation.  An offline-derived cnonce eliminates the server-issued
-   nonce round-trip and enables stateless nonce validation.  For SASL-
+   The profile is designed so that the credential and proof are a
+   single, inseparable cryptographic object — there is no credential
+   without a proof, and no proof without a credential.  A protocol-
+   neutral rctx (Request Context) object replaces the HTTP-specific htm/
+   htu claims of [RFC9449], enabling EPOP tokens to operate over any
+   transport — HTTP, MQTT, Kafka, gRPC, the Model Context Protocol
+   (MCP), and SASL-based protocols — without protocol-specific
+   adaptation.  An offline-derived client nonce (cnonce) eliminates the
+   server-issued nonce round-trip required by [RFC9449] and enables
+   stateless nonce validation.  Coverage extends to authorization codes
+   and refresh tokens as well as access tokens, and the profile defines
+   atomic key rotation during the refresh token exchange.  For SASL-
    based protocols, this document defines OAUTHEPOP, a new SASL
-   mechanism extending [RFC7628] with sender-constraining support via a
-   new EPOP auth type; all behaviors defined in [RFC7628] remain
-   unchanged.  EPOP further defines cryptographic key rotation during
-   the refresh token exchange, enabling secure long-term key management
-   without interrupting active sessions.
+   mechanism extending [RFC7628] with sender-constraining support; all
+   behaviors defined in [RFC7628] remain unchanged.
 
 1.1.  Comparison with DPoP
 
@@ -266,12 +268,16 @@ Table of Contents
    The following terms are used throughout this document:
 
    EPOP Token:  A signed JWT ([RFC7519]) with typ: epop+jwt, signed by
-      the client's private key, that contains an OAuth 2.0 credential in
-      the ntk claim.
+      the client's private key.  Contains an OAuth 2.0 credential in the
+      ntk claim when used for resource access or token refresh; in
+      authorization code exchange flows contains only cnf.jkt for key
+      binding, with the authorization code traveling as the standard
+      code form parameter.
 
-   Nested Token (ntk):  The OAuth 2.0 credential (authorization code,
-      access token, refresh token, or another EPOP token) embedded
-      inside an EPOP token's payload.
+   Nested Token (ntk):  The OAuth 2.0 credential (access token, refresh
+      token, or another EPOP token for key rotation) embedded inside an
+      EPOP token's payload.  Not present in EPOP tokens used for
+      authorization code exchange.
 
    Request Context (rctx):  A JSON object in the EPOP payload that
       identifies the target resource and protocol action, replacing the
@@ -294,7 +300,28 @@ Table of Contents
    JWK Thumbprint:  The SHA-256 thumbprint of a JSON Web Key, computed
       as defined in [RFC7638].
 
-3.  EPOP Token Structure
+2.1.  Conformance
+
+   This specification defines normative requirements for three
+   conformance roles:
+
+   EPOP-issuing Authorization Server:  An AS that issues EPOP-bound
+      tokens MUST bind all issued tokens to the client's public key via
+      cnf.jkt, MUST validate EPOP tokens presented at the token endpoint
+      per Section 5.1, and MUST publish EPOP capability metadata per
+      Section 11.
+
+   EPOP-validating Resource Server:  An RS that accepts EPOP tokens MUST
+      verify the outer envelope signature, MUST enforce rctx binding,
+      and MUST verify cnf.jkt against the key in the EPOP token header
+      per Section 5.2.
+
+   EPOP Client:  A client producing EPOP tokens MUST sign each token
+      with the private key whose public component appears in the EPOP
+      token header, MUST NOT reuse jti values, and MUST derive cnonce
+      per Section 12 when the AS requires it.
+
+3.  EPOP Token Profile
 
    An EPOP token is a signed JWT ([RFC7519]) with typ: epop+jwt.
 
@@ -375,61 +402,68 @@ Table of Contents
 
 3.2.  Payload
 
-   +=============+=============+=======================================+
-   | Claim       | Required    | Description                           |
-   +=============+=============+=======================================+
-   | jti         | REQUIRED    | Unique JWT ID.  MUST be generated     |
-   |             |             | with sufficient entropy (e.g.,        |
-   |             |             | UUID v4 or CSPRNG-generated           |
-   |             |             | value).  Servers MUST maintain a      |
-   |             |             | replay cache keyed on jti.            |
-   +-------------+-------------+---------------------------------------+
-   | iat         | REQUIRED    | Issued-at Unix timestamp.  Servers    |
-   |             |             | MUST reject tokens older than the     |
-   |             |             | server-defined maximum EPOP           |
-   |             |             | lifetime or issued in the future      |
-   |             |             | beyond clock skew.  EPOP tokens       |
-   |             |             | MUST be treated as very short         |
-   |             |             | duration per-request credentials.     |
-   +-------------+-------------+---------------------------------------+
-   | ntk         | REQUIRED    | The nested OAuth 2.0 credential.      |
-   |             |             | A compact-serialized JWT or a         |
-   |             |             | Base64URL-encoded opaque string.      |
-   |             |             | See Section 3.3.                      |
-   +-------------+-------------+---------------------------------------+
-   | cnonce      | RECOMMENDED | Offline-derived client nonce.  See    |
-   |             |             | Section 12.  When the server          |
-   |             |             | publishes epop_cnonce_required:       |
-   |             |             | true, the client MUST include this    |
-   |             |             | claim.                                |
-   +-------------+-------------+---------------------------------------+
-   | rctx        | OPTIONAL    | Request context object.  When         |
-   |             |             | present, all recognized members       |
-   |             |             | MUST be validated by the server.      |
-   +-------------+-------------+---------------------------------------+
-   | rctx.res    | OPTIONAL    | URI or URN of the target resource     |
-   |             |             | or endpoint.                          |
-   +-------------+-------------+---------------------------------------+
-   | rctx.method | RECOMMENDED | Protocol action string.  Case-        |
-   |             |             | insensitive for HTTP methods;         |
-   |             |             | case-sensitive otherwise.             |
-   +-------------+-------------+---------------------------------------+
-   | rctx.id     | OPTIONAL    | Client-generated correlation ID.      |
-   |             |             | Useful in async or multiplexed        |
-   |             |             | protocols.                            |
-   +-------------+-------------+---------------------------------------+
-   | cnf.jkt     | CONDITIONAL | SHA-256 JWK Thumbprint ([RFC7638])    |
-   |             |             | of the client's public key.           |
-   |             |             | REQUIRED in authorization code        |
-   |             |             | exchange and in the inner envelope    |
-   |             |             | of a key rotation request.  SHOULD    |
-   |             |             | be omitted on routine resource        |
-   |             |             | access and simple refresh requests    |
-   |             |             | where the key is already bound to     |
-   |             |             | the token.                            |
-   +-------------+-------------+---------------------------------------+
+    +=============+=============+====================================+
+    | Claim       | Required    | Description                        |
+    +=============+=============+====================================+
+    | jti         | REQUIRED    | Unique JWT ID.  MUST be generated  |
+    |             |             | with sufficient entropy (e.g.,     |
+    |             |             | UUID v4 or CSPRNG-generated        |
+    |             |             | value).  Servers MUST maintain a   |
+    |             |             | replay cache keyed on jti.         |
+    +-------------+-------------+------------------------------------+
+    | iat         | REQUIRED    | Issued-at Unix timestamp.  Servers |
+    |             |             | MUST reject tokens older than the  |
+    |             |             | server-defined maximum EPOP        |
+    |             |             | lifetime or issued in the future   |
+    |             |             | beyond clock skew.  EPOP tokens    |
+    |             |             | MUST be treated as very short      |
+    |             |             | duration per-request credentials.  |
+    +-------------+-------------+------------------------------------+
+    | ntk         | CONDITIONAL | The nested OAuth 2.0 credential.   |
+    |             |             | REQUIRED when the EPOP token is    |
+    |             |             | used for resource access, refresh  |
+    |             |             | token grant, token revocation, or  |
+    |             |             | introspection.  OMITTED in         |
+    |             |             | authorization code exchange flows, |
+    |             |             | where the authorization code       |
+    |             |             | travels as the standard code form  |
+    |             |             | parameter.  A compact-serialized   |
+    |             |             | JWT or a Base64URL-encoded opaque  |
+    |             |             | string.  See Section 3.3.          |
+    +-------------+-------------+------------------------------------+
+    | cnonce      | RECOMMENDED | Offline-derived client nonce.  See |
+    |             |             | Section 12.  When the server       |
+    |             |             | publishes epop_cnonce_required:    |
+    |             |             | true, the client MUST include this |
+    |             |             | claim.                             |
+    +-------------+-------------+------------------------------------+
+    | rctx        | OPTIONAL    | Request context object.  When      |
+    |             |             | present, all recognized members    |
+    |             |             | MUST be validated by the server.   |
+    +-------------+-------------+------------------------------------+
+    | rctx.res    | OPTIONAL    | URI or URN of the target resource  |
+    |             |             | or endpoint.                       |
+    +-------------+-------------+------------------------------------+
+    | rctx.method | RECOMMENDED | Protocol action string.  Case-     |
+    |             |             | insensitive for HTTP methods;      |
+    |             |             | case-sensitive otherwise.          |
+    +-------------+-------------+------------------------------------+
+    | rctx.id     | OPTIONAL    | Client-generated correlation ID.   |
+    |             |             | Useful in async or multiplexed     |
+    |             |             | protocols.                         |
+    +-------------+-------------+------------------------------------+
+    | cnf.jkt     | CONDITIONAL | SHA-256 JWK Thumbprint ([RFC7638]) |
+    |             |             | of the client's public key.        |
+    |             |             | REQUIRED in authorization code     |
+    |             |             | exchange and in the inner envelope |
+    |             |             | of a key rotation request.  SHOULD |
+    |             |             | be omitted on routine resource     |
+    |             |             | access and simple refresh requests |
+    |             |             | where the key is already bound to  |
+    |             |             | the token.                         |
+    +-------------+-------------+------------------------------------+
 
-                                  Table 4
+                                 Table 4
 
    Example payload:
 
@@ -463,18 +497,36 @@ Table of Contents
    | Opaque refresh      | Base64URL-encoded opaque string             |
    | token               |                                             |
    +---------------------+---------------------------------------------+
-   | Opaque              | Base64URL-encoded opaque string             |
-   | authorization code  |                                             |
-   +---------------------+---------------------------------------------+
    | Inner EPOP token    | Compact-serialized EPOP JWT                 |
    | (key rotation)      |                                             |
    +---------------------+---------------------------------------------+
 
                                   Table 5
 
-4.  Creating an EPOP Token
+   Note: Authorization codes are NOT embedded in ntk.  In authorization
+   code exchange flows the code travels as the standard code form
+   parameter; the EPOP token provides only cnf.jkt key binding.
 
-4.1.  Prerequisites
+4.  Issuing and Constructing EPOP Tokens
+
+4.1.  Issuing EPOP Tokens
+
+   When an AS issues tokens in response to a valid EPOP-authenticated
+   request, it MUST bind the issued token to the client's public key by
+   including the cnf.jkt claim — the SHA-256 JWK Thumbprint ([RFC7638])
+   of the public key from the EPOP token's jwk header parameter — in the
+   issued token.
+
+   For JWT access tokens ([RFC9068]), the AS includes cnf.jkt directly
+   in the JWT payload.  For opaque tokens, the AS MUST record the
+   association between the token and the client's cnf.jkt in a server-
+   side store accessible to the introspection endpoint (Section 10.2).
+
+   The AS MUST NOT issue EPOP-bound tokens unless it has successfully
+   validated the EPOP token presented at the token endpoint per
+   Section 5.1.
+
+4.2.  Client Prerequisites
 
    The client MUST have:
 
@@ -486,17 +538,21 @@ Table of Contents
 
    *  A trusted clock for iat.
 
-4.2.  Construction
+4.3.  Constructing EPOP Tokens
 
    Step 1 — Prepare the JOSE header with typ: epop+jwt, the signing
    algorithm, and the public key JWK.
 
-   Step 2 — Prepare the payload.  Encode the credential in ntk:
+   Step 2 — Prepare the payload.  Include ntk when the EPOP token
+   carries a credential:
 
-   *  If the credential is a JWT: use its compact serialization
-      directly.
+   *  If the credential is a JWT: use its compact serialization directly
+      as the ntk value.
 
-   *  If the credential is opaque: Base64URL-encode it.
+   *  If the credential is opaque: Base64URL-encode it as the ntk value.
+
+   *  In authorization code exchange flows, omit ntk entirely; the
+      authorization code travels as the code form parameter.
 
    Include cnf.jkt only when establishing or rotating the key binding
    (authorization code exchange, PAR, or key rotation), not on every
@@ -517,7 +573,7 @@ epop_token = BASE64URL(header) + "." + BASE64URL(payload) + "." + BASE64URL(sign
 
    Authorization: EPOP <compact-serialized-epop-token>
 
-4.3.  Inner EPOP Token for Key Rotation
+4.4.  Inner EPOP Token for Key Rotation
 
    When rotating keys, the client constructs a two-layer structure.  The
    inner envelope is signed with the OLD private key:
@@ -541,8 +597,8 @@ epop_token = BASE64URL(header) + "." + BASE64URL(payload) + "." + BASE64URL(sign
      "ntk": "<compact-serialized-inner-epop-token>"
    }
 
-   The outer token is submitted as the epop parameter in a refresh_token
-   grant request.
+   The outer token is submitted in the Authorization: EPOP header of a
+   refresh_token grant request.
 
 5.  Validating an EPOP Token
 
@@ -583,19 +639,21 @@ epop_token = BASE64URL(header) + "." + BASE64URL(payload) + "." + BASE64URL(sign
 
        *  Confirm rctx.method == "POST".
 
-   7.  *Decode and validate ntk*:
+   7.  *Validate credential* (path depends on grant type):
 
-       *  If authorization code (JWT): verify signature, expiry, and
-          PKCE code_verifier.
+       Authorization code exchange (grant_type=authorization_code): -
+       Extract the code parameter from the form body; ntk is absent from
+       the EPOP token. - If authorization code is a JWT: verify
+       signature and expiry. - If authorization code is opaque: look up
+       in server-side store; verify not expired and not previously used.
+       - Verify PKCE code_verifier against the stored code_challenge.
 
-       *  If authorization code (opaque): look up in server-side store;
-          verify not expired, not used; verify PKCE code_verifier.
-
-       *  If refresh token (single layer): verify validity and expiry.
-
-       *  If inner EPOP token (key rotation): repeat steps 1–6 for the
-          inner envelope; verify inner jwk is a valid asymmetric public
-          key; confirm inner rctx.res matches token endpoint.
+       Refresh token grant (grant_type=refresh_token): - Decode ntk from
+       the EPOP token. - If single layer: verify refresh token validity
+       and expiry. - If inner EPOP token (key rotation): repeat steps
+       1–6 for the inner envelope; verify inner jwk is a valid
+       asymmetric public key; confirm inner rctx.res matches the token
+       endpoint; decode inner ntk as the refresh token.
 
    8.  *Verify key binding*:
 
@@ -679,8 +737,9 @@ epop_token = BASE64URL(header) + "." + BASE64URL(payload) + "." + BASE64URL(sign
      |                              |                           |
      |-- 3. Token Request (POST) -->|                           |
      |   Authorization: EPOP <token:|                           |
-     |     code in ntk, cnf.jkt,    |                           |
-     |     code_verifier>           |                           |
+     |     cnf.jkt, rctx>           |                           |
+     |   + code, code_verifier      |                           |
+     |   (form parameters)          |                           |
      |                              |                           |
      |<-- 4. Access Token ----------|                           |
      |   (cnf.jkt bound to key)     |                           |
@@ -700,13 +759,14 @@ epop_token = BASE64URL(header) + "." + BASE64URL(payload) + "." + BASE64URL(sign
    Authorization: EPOP <compact-serialized-epop-token>
 
    grant_type=authorization_code
+   &code=<authorization-code>
    &client_id=s6BhdRkqt3
    &redirect_uri=https%3A%2F%2Fclient.example.com%2Fcb
    &code_verifier=bEaL42izcC-o-xBk0K2vuJ6U-y1p9r_wW2dFWIWgjz-
 
-   EPOP token payload for this request (opaque authorization code
-   Base64URL-encoded in ntk; cnf.jkt is the first-time key declaration
-   since no PAR was used):
+   EPOP token payload for this request (cnf.jkt declares the client's
+   key binding; ntk is absent because the authorization code travels as
+   the code form parameter per standard OAuth 2.0):
 
    {
      "jti": "A8B2B026-6C81-4A8C-A403-0F225E3DFEED",
@@ -714,7 +774,6 @@ epop_token = BASE64URL(header) + "." + BASE64URL(payload) + "." + BASE64URL(sign
      "cnf": {
        "jkt": "NLp8qGUJ1ywXs4ayYFLHfh8TA0crUe4g78UyBfx5j0Y"
      },
-     "ntk": "QjM3Qjc3NDQtRjJDNS00RjY3LTkwMkQtMTVFNjIwOTMxNkE5",
      "rctx": {
        "res": "https://as.example.com/token",
        "method": "POST"
@@ -1068,10 +1127,31 @@ n,,<SOH>auth=EPOP <compact-epop-token><SOH>host=mail.example.com<SOH>port=993<SO
 
 10.2.  Token Introspection
 
-   The RS sends the EPOP token received from the client as the token
-   parameter with token_type_hint=epop_token.  The AS validates the EPOP
-   envelope, extracts the credential from ntk, and returns a standard
-   [RFC7662] response extended with cnf.jkt:
+   Token introspection ([RFC7662]) for EPOP tokens supports two modes.
+
+10.2.1.  Mode 1: Inner Token Introspection
+
+   The caller extracts the access token from the ntk claim of the
+   received EPOP token and submits it to the introspection endpoint with
+   the appropriate token_type_hint (e.g., access_token):
+
+   POST /introspect HTTP/1.1
+   Host: as.example.com
+   Content-Type: application/x-www-form-urlencoded
+   Authorization: Basic <rs-credentials>
+
+   token=<access-token-extracted-from-ntk>
+   &token_type_hint=access_token
+
+   The introspection response includes cnf.jkt.  The caller MUST verify
+   that sha256(EPOP token signing key) equals the cnf.jkt returned in
+   the response.  This check confirms that the EPOP envelope was signed
+   by the key legitimately bound to the nested token.
+
+10.2.2.  Mode 2: Full EPOP Token Introspection
+
+   The caller sends the entire EPOP token to the introspection endpoint
+   with token_type_hint=epop_token:
 
    POST /introspect HTTP/1.1
    Host: as.example.com
@@ -1081,11 +1161,16 @@ n,,<SOH>auth=EPOP <compact-epop-token><SOH>host=mail.example.com<SOH>port=993<SO
    token=<epop-token-received-from-client>
    &token_type_hint=epop_token
 
-   For opaque tokens, cnf.jkt in the response is the server-side
-   registered client EPOP public key; for JWT tokens it is extracted
-   from the token's own cnf.jkt claim.
+   The AS validates the EPOP envelope signature, extracts the credential
+   from ntk, and validates it.  The AS MUST verify that sha256(EPOP
+   token signing key) equals the cnf.jkt in the nested token before
+   returning a response.  This check prevents a caller from presenting a
+   valid EPOP envelope wrapping a token not bound to that key.
 
-   Access token introspection response:
+   In both modes the introspection response includes cnf.jkt.  For
+   opaque tokens, cnf.jkt is the server-side registered client EPOP
+   public key; for JWT tokens it is extracted from the token's own
+   cnf.jkt claim.
 
    {
      "active": true,
@@ -1103,38 +1188,11 @@ n,,<SOH>auth=EPOP <compact-epop-token><SOH>host=mail.example.com<SOH>port=993<SO
 
 10.3.  Token Exchange
 
-   Token exchange ([RFC8693]) is performed on nested tokens: the token
-   to be exchanged travels inside the ntk claim of an EPOP envelope, and
-   the form parameters defined in [RFC8693] (e.g., grant_type,
-   subject_token, subject_token_type, audience) are unchanged.  A client
-   of the token exchange MAY use an EPOP token in the Authorization
-   header in place of a bearer token when authenticating to the token
-   endpoint.
+   Token exchange is not covered by this specification.
 
 10.4.  Token Revocation
 
-   The token to be revoked travels inside the EPOP envelope ([RFC7009]):
-
-   {
-     "jti": "<unique-id>",
-     "iat": "<unix-time>",
-     "ntk": "<access-or-refresh-token>",
-     "rctx": {
-       "res": "https://as.example.com/revoke",
-       "method": "POST"
-     }
-   }
-
-   POST /revoke HTTP/1.1
-   Host: as.example.com
-   Content-Type: application/x-www-form-urlencoded
-
-   client_id=s6BhdRkqt3
-   &epop=<compact-serialized-epop-token>
-
-   The AS MUST confirm sha256(outer jwk) == cnf.jkt in the token before
-   revoking.  This prevents third-party revocation of another client's
-   tokens.
+   Token revocation is not covered by this specification.
 
 10.5.  Pushed Authorization Requests
 
@@ -1464,63 +1522,137 @@ reject
    coordinates seed rotation across AS and RS nodes is out of scope for
    this document.
 
-13.  Security Considerations
+13.  Relationship to Other Specifications
 
-13.1.  Summary
-
-      +=================+===========================================+
-      | Consideration   | Requirement                               |
-      +=================+===========================================+
-      | EPOP token      | Very short; server-defined.  When cnonce  |
-      | lifetime        | is required, epop_cnonce_step_seconds     |
-      |                 | provides an additional server-enforced    |
-      |                 | validity bound applied by both AS and RS. |
-      +-----------------+-------------------------------------------+
-      | Replay          | MUST maintain jti replay cache.  TTL MUST |
-      | prevention      | cover max lifetime + clock skew.          |
-      +-----------------+-------------------------------------------+
-      | Algorithm       | EdDSA (Ed25519 or Ed448) RECOMMENDED;     |
-      | policy          | ES256 acceptable; RSA SHOULD NOT be used; |
-      |                 | HS* and none MUST NOT be used.  See       |
-      |                 | Section 3.1.1.                            |
-      +-----------------+-------------------------------------------+
-      | PKCE in code    | REQUIRED.  Without PKCE, an attacker who  |
-      | flows           | captures the code can wrap it in their    |
-      |                 | own EPOP token.                           |
-      +-----------------+-------------------------------------------+
-      | Private key     | Platform-appropriate secure storage.  See |
-      | storage         | Section 13.2.                             |
-      +-----------------+-------------------------------------------+
-      | rctx validation | MUST validate when present.  Skipping     |
-      |                 | allows cross-resource replay within the   |
-      |                 | token validity window.                    |
-      +-----------------+-------------------------------------------+
-      | ntk             | TLS REQUIRED; JWE optional for extra      |
-      | confidentiality | confidentiality. ntk is Base64URL-        |
-      |                 | encoded, not encrypted.  Refresh tokens   |
-      |                 | and authorization codes are sensitive.    |
-      +-----------------+-------------------------------------------+
-      | Key rotation    | AS MUST validate both envelopes           |
-      | atomicity       | completely before issuing new tokens.     |
-      |                 | Partial validation allows key injection.  |
-      +-----------------+-------------------------------------------+
-      | RS opaque token | RS MUST NOT cache introspection results   |
-      | key state       | beyond the EPOP token validity window; AS |
-      |                 | MUST atomically update server-side key    |
-      |                 | binding on rotation.                      |
-      +-----------------+-------------------------------------------+
-      | Token binding   | sha256(outer jwk) == ntk.cnf.jkt is       |
-      | check           | REQUIRED.  Primary defense against token  |
-      |                 | substitution.                             |
-      +-----------------+-------------------------------------------+
-      | cnonce          | RECOMMENDED when server publishes seed.   |
-      | freshness       | Offline-derived nonce binds each EPOP     |
-      |                 | token to its jti and current time step.   |
-      +-----------------+-------------------------------------------+
+   +===========+================+======================================+
+   | RFC       | Title          | Relationship                         |
+   +===========+================+======================================+
+   | [RFC7628] | A Set of       | EPOP extends RFC 7628 by             |
+   |           | Simple         | introducing EPOP as a new OAuth      |
+   |           | Authentication | authentication type for the SASL     |
+   |           | and Security   | auth field and defining OAUTHEPOP    |
+   |           | Layer (SASL)   | as a new SASL mechanism.  All        |
+   |           | Mechanisms for | behaviors defined in RFC 7628        |
+   |           | OAuth          | remain in effect; this document      |
+   |           |                | adds only the auth=EPOP field        |
+   |           |                | value and the key binding check      |
+   |           |                | that OAUTHBEARER servers apply       |
+   |           |                | when they encounter it.              |
+   +-----------+----------------+--------------------------------------+
+   | [RFC9449] | OAuth 2.0      | EPOP generalizes the DPoP proof      |
+   |           | Demonstrating  | model: replaces htm/htu with rctx    |
+   |           | Proof of       | for protocol agnosticism;            |
+   |           | Possession     | replaces the ath hash with ntk       |
+   |           | (DPoP)         | embedding so credential and proof    |
+   |           |                | travel as one object; extends        |
+   |           |                | coverage to authorization codes      |
+   |           |                | and refresh tokens; adds atomic      |
+   |           |                | key rotation and the offline         |
+   |           |                | cnonce.                              |
+   +-----------+----------------+--------------------------------------+
+   | [RFC7636] | Proof Key for  | EPOP elevates PKCE from              |
+   |           | Code Exchange  | RECOMMENDED to REQUIRED in all       |
+   |           | (PKCE)         | authorization code flows.            |
+   +-----------+----------------+--------------------------------------+
+   | [RFC8414] | OAuth 2.0      | EPOP adds new discovery fields to    |
+   |           | Authorization  | the well-known document:             |
+   |           | Server         | epop_supported,                      |
+   |           | Metadata       | epop_ntk_types_supported,            |
+   |           |                | epop_key_rotation_supported, and     |
+   |           |                | the epop_cnonce_* family.            |
+   +-----------+----------------+--------------------------------------+
+   | [RFC7638] | JSON Web Key   | EPOP uses the SHA-256 JWK            |
+   |           | (JWK)          | thumbprint (cnf.jkt) as its          |
+   |           | Thumbprint     | primary key binding primitive —      |
+   |           |                | embedded in every issued token       |
+   |           |                | and checked by the RS as its main    |
+   |           |                | defense against token                |
+   |           |                | substitution.                        |
+   +-----------+----------------+--------------------------------------+
+   | [RFC7662] | OAuth 2.0      | EPOP extends introspection           |
+   |           | Token          | responses to include cnf.jkt.        |
+   |           | Introspection  | For opaque tokens the AS returns     |
+   |           |                | the server-side registered client    |
+   |           |                | EPOP public key; for JWT tokens      |
+   |           |                | it is extracted from the token's     |
+   |           |                | own claim.                           |
+   +-----------+----------------+--------------------------------------+
+   | [RFC9126] | OAuth 2.0      | EPOP extends PAR to let the          |
+   |           | Pushed         | client declare cnf.jkt at the        |
+   |           | Authorization  | earliest point in the flow, pre-     |
+   |           | Requests (PAR) | binding the authorization code       |
+   |           |                | before the browser redirect.         |
+   +-----------+----------------+--------------------------------------+
+   | [RFC5869] | HMAC-based Key | EPOP uses HKDF-SHA256 to derive a    |
+   |           | Derivation     | per-client key from the optional     |
+   |           | Function       | server-controlled                    |
+   |           | (HKDF)         | epop_cnonce_seed and the client's    |
+   |           |                | public key, enabling stateless       |
+   |           |                | offline cnonce computation.          |
+   +-----------+----------------+--------------------------------------+
 
                                   Table 12
 
-13.2.  Private Key Protection
+14.  Security Considerations
+
+14.1.  Summary
+
+      +=================+==========================================+
+      | Consideration   | Requirement                              |
+      +=================+==========================================+
+      | EPOP token      | Very short; server-defined.  When cnonce |
+      | lifetime        | is required, epop_cnonce_step_seconds    |
+      |                 | provides an additional server-enforced   |
+      |                 | validity bound applied by both AS and    |
+      |                 | RS.                                      |
+      +-----------------+------------------------------------------+
+      | Replay          | MUST maintain jti replay cache.  TTL     |
+      | prevention      | MUST cover max lifetime + clock skew.    |
+      +-----------------+------------------------------------------+
+      | Algorithm       | EdDSA (Ed25519 or Ed448) RECOMMENDED;    |
+      | policy          | ES256 acceptable; RSA SHOULD NOT be      |
+      |                 | used; HS* and none MUST NOT be used.     |
+      |                 | See Section 3.1.1.                       |
+      +-----------------+------------------------------------------+
+      | PKCE in code    | REQUIRED.  Without PKCE, an attacker who |
+      | flows           | captures the code can wrap it in their   |
+      |                 | own EPOP token.                          |
+      +-----------------+------------------------------------------+
+      | Private key     | Platform-appropriate secure storage.     |
+      | storage         | See Section 14.2.                        |
+      +-----------------+------------------------------------------+
+      | rctx validation | MUST validate when present.  Skipping    |
+      |                 | allows cross-resource replay within the  |
+      |                 | token validity window.                   |
+      +-----------------+------------------------------------------+
+      | ntk             | TLS REQUIRED; JWE optional for extra     |
+      | confidentiality | confidentiality. ntk is Base64URL-       |
+      |                 | encoded, not encrypted.  Refresh tokens  |
+      |                 | in ntk are sensitive.  Authorization     |
+      |                 | codes are not embedded in ntk and travel |
+      |                 | as the standard code form parameter.     |
+      +-----------------+------------------------------------------+
+      | Key rotation    | AS MUST validate both envelopes          |
+      | atomicity       | completely before issuing new tokens.    |
+      |                 | Partial validation allows key injection. |
+      +-----------------+------------------------------------------+
+      | RS opaque token | RS MUST NOT cache introspection results  |
+      | key state       | beyond the EPOP token validity window;   |
+      |                 | AS MUST atomically update server-side    |
+      |                 | key binding on rotation.                 |
+      +-----------------+------------------------------------------+
+      | Token binding   | sha256(outer jwk) == ntk.cnf.jkt is      |
+      | check           | REQUIRED.  Primary defense against token |
+      |                 | substitution.                            |
+      +-----------------+------------------------------------------+
+      | cnonce          | RECOMMENDED when server publishes seed.  |
+      | freshness       | Offline-derived nonce binds each EPOP    |
+      |                 | token to its jti and current time step.  |
+      +-----------------+------------------------------------------+
+
+                                 Table 13
+
+14.2.  Private Key Protection
 
    The security of EPOP depends entirely on the client's private key
    remaining secret.
@@ -1551,7 +1683,7 @@ reject
    in the jwk header parameter before accepting or forwarding an EPOP
    token.
 
-13.3.  Token Substitution Attacks
+14.3.  Token Substitution Attacks
 
    The key binding check in Section 5.2 Step 6 is the primary defense
    against token substitution.  An attacker who captures an access token
@@ -1559,7 +1691,7 @@ reject
    produce a sha256(outer jwk) value that does not match the cnf.jkt
    embedded in the token by the AS.  The RS MUST reject this mismatch.
 
-13.4.  Cross-Protocol Replay
+14.4.  Cross-Protocol Replay
 
    Without rctx validation, an EPOP token captured from one protocol or
    endpoint could be replayed at another within the token's validity
@@ -1567,7 +1699,7 @@ reject
    claims are present.  Clients SHOULD always include rctx to maximize
    replay resistance.
 
-13.5.  Key Rotation Security
+14.5.  Key Rotation Security
 
    The AS MUST validate both envelopes completely before issuing new
    tokens or updating key bindings.  Partial validation would allow an
@@ -1575,9 +1707,48 @@ reject
    constructing a valid outer envelope while providing an invalid inner
    envelope.
 
-14.  IANA Considerations
+15.  Privacy Considerations
 
-14.1.  HTTP Authentication Scheme Registration
+15.1.  Credential Visibility in Logs
+
+   The ntk claim embeds the full OAuth 2.0 credential inside the EPOP
+   envelope.  Unlike bearer token flows where only the token value is
+   sensitive, an EPOP token carries sensitive material throughout its
+   compact serialization.  Servers and intermediaries MUST NOT log EPOP
+   token values in plaintext.  When logging is required for audit
+   purposes, the jti claim SHOULD be used as the correlation identifier
+   in place of the token value.
+
+15.2.  Key Identifier as Tracking Vector
+
+   The cnf.jkt claim is a stable, long-lived public key thumbprint.  If
+   the same key pair is used across multiple authorization server or
+   resource server deployments, the thumbprint functions as a cross-
+   context tracking identifier.  Clients SHOULD use distinct key pairs
+   per authorization server to limit cross-context correlation.  Key
+   rotation (Section 8.2) provides a mechanism for periodic key refresh
+   independent of active sessions.
+
+15.3.  Resource URI Disclosure
+
+   The rctx.res field encodes the target resource URI or URN and is part
+   of the signed EPOP envelope, visible to any party that receives or
+   logs the token.  Clients MUST use TLS for all EPOP token
+   transmissions to limit exposure to on-path observers.  Resource
+   identifiers that encode sensitive information (e.g., user identifiers
+   embedded in path parameters) SHOULD be avoided in rctx.res.
+
+15.4.  Minimal Disclosure
+
+   This profile does not require the EPOP envelope to carry user
+   identity claims.  User identity information belongs in the nested
+   access token (ntk), not in the outer EPOP envelope.  Implementations
+   MUST NOT add user identity claims to the EPOP token header or payload
+   unless required by a specific profile extension.
+
+16.  IANA Considerations
+
+16.1.  HTTP Authentication Scheme Registration
 
    This specification requests registration of the following entry in
    the "Hypertext Transfer Protocol (HTTP) Authentication Scheme
@@ -1588,7 +1759,7 @@ reject
    Pointer to specification text:  Section 6.3 and Section 3 of this
       document.
 
-14.2.  JWT Claims Registration
+16.2.  JWT Claims Registration
 
    This specification requests registration of the following JWT claims
    in the "JSON Web Token Claims" registry established by [RFC7519]:
@@ -1615,7 +1786,7 @@ reject
 
       Specification Document(s): Section 12 of this document
 
-14.3.  JWT Type Registration
+16.3.  JWT Type Registration
 
    This specification requests registration of the epop+jwt media type
    suffix:
@@ -1626,7 +1797,7 @@ reject
 
       Specification Document(s): Section 3.1 of this document
 
-14.4.  OAuth Authorization Server Metadata
+16.4.  OAuth Authorization Server Metadata
 
    This specification requests registration of the following names in
    the "OAuth Authorization Server Metadata" registry ([RFC8414]):
@@ -1645,7 +1816,7 @@ reject
 
    *  epop_cnonce_required
 
-14.5.  OAuth Protected Resource Metadata
+16.5.  OAuth Protected Resource Metadata
 
    This specification requests registration of the following names in
    the "OAuth Protected Resource Metadata" registry ([RFC9728]):
@@ -1662,7 +1833,7 @@ reject
 
    *  epop_cnonce_required
 
-14.6.  SASL Mechanism Registration
+16.6.  SASL Mechanism Registration
 
    This specification requests registration of the following entry in
    the "SASL Mechanisms" registry established by [RFC4422]:
@@ -1677,9 +1848,9 @@ reject
 
    Owner/Change Controller:  IETF
 
-15.  References
+17.  References
 
-15.1.  Normative References
+17.1.  Normative References
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119,
@@ -1695,6 +1866,10 @@ reject
               Key Derivation Function (HKDF)", RFC 5869,
               DOI 10.17487/RFC5869, May 2010,
               <https://www.rfc-editor.org/rfc/rfc5869>.
+
+   [RFC6749]  Hardt, D., Ed., "The OAuth 2.0 Authorization Framework",
+              RFC 6749, DOI 10.17487/RFC6749, October 2012,
+              <https://www.rfc-editor.org/rfc/rfc6749>.
 
    [RFC7235]  Fielding, R., Ed. and J. Reschke, Ed., "Hypertext Transfer
               Protocol (HTTP/1.1): Authentication", RFC 7235,
@@ -1755,116 +1930,20 @@ reject
               DOI 10.17487/RFC9728, April 2025,
               <https://www.rfc-editor.org/rfc/rfc9728>.
 
-15.2.  Informative References
-
-   [RFC6749]  Hardt, D., Ed., "The OAuth 2.0 Authorization Framework",
-              RFC 6749, DOI 10.17487/RFC6749, October 2012,
-              <https://www.rfc-editor.org/rfc/rfc6749>.
-
-   [RFC7009]  Lodderstedt, T., Ed., Dronia, S., and M. Scurtescu, "OAuth
-              2.0 Token Revocation", RFC 7009, DOI 10.17487/RFC7009,
-              August 2013, <https://www.rfc-editor.org/rfc/rfc7009>.
+17.2.  Informative References
 
    [RFC8252]  Denniss, W. and J. Bradley, "OAuth 2.0 for Native Apps",
               BCP 212, RFC 8252, DOI 10.17487/RFC8252, October 2017,
               <https://www.rfc-editor.org/rfc/rfc8252>.
 
-   [RFC8693]  Jones, M., Nadalin, A., Campbell, B., Ed., Bradley, J.,
-              and C. Mortimore, "OAuth 2.0 Token Exchange", RFC 8693,
-              DOI 10.17487/RFC8693, January 2020,
-              <https://www.rfc-editor.org/rfc/rfc8693>.
+   [RFC9068]  Bertocci, V., "JSON Web Token (JWT) Profile for OAuth 2.0
+              Access Tokens", RFC 9068, DOI 10.17487/RFC9068, October
+              2021, <https://www.rfc-editor.org/rfc/rfc9068>.
 
    [RFC9126]  Lodderstedt, T., Campbell, B., Sakimura, N., Tonge, D.,
               and F. Skokan, "OAuth 2.0 Pushed Authorization Requests",
               RFC 9126, DOI 10.17487/RFC9126, September 2021,
               <https://www.rfc-editor.org/rfc/rfc9126>.
-
-Appendix A.  Relationship to Other Specifications
-
-   +===========+================+======================================+
-   | RFC       | Title          | How EPOP Extends It                  |
-   +===========+================+======================================+
-   | [RFC7628] | A Set of       | EPOP extends RFC 7628 by             |
-   |           | Simple         | introducing EPOP as a new OAuth      |
-   |           | Authentication | authentication type for the SASL     |
-   |           | and Security   | auth field and defining OAUTHEPOP    |
-   |           | Layer (SASL)   | as a new SASL mechanism.  All        |
-   |           | Mechanisms for | behaviors defined in RFC 7628        |
-   |           | OAuth          | remain in effect; this document      |
-   |           |                | adds only the auth=EPOP field        |
-   |           |                | value and the key binding check      |
-   |           |                | that OAUTHBEARER servers apply       |
-   |           |                | when they encounter it.              |
-   +-----------+----------------+--------------------------------------+
-   | [RFC9449] | OAuth 2.0      | EPOP generalizes the DPoP proof      |
-   |           | Demonstrating  | model: replaces htm/htu with rctx    |
-   |           | Proof of       | for protocol agnosticism;            |
-   |           | Possession     | replaces the ath hash with ntk       |
-   |           | (DPoP)         | embedding so credential and proof    |
-   |           |                | travel as one object; extends        |
-   |           |                | coverage to authorization codes      |
-   |           |                | and refresh tokens; adds atomic      |
-   |           |                | key rotation and the offline         |
-   |           |                | cnonce.                              |
-   +-----------+----------------+--------------------------------------+
-   | [RFC7636] | Proof Key for  | EPOP elevates PKCE from              |
-   |           | Code Exchange  | RECOMMENDED to REQUIRED in all       |
-   |           | (PKCE)         | authorization code flows.            |
-   +-----------+----------------+--------------------------------------+
-   | [RFC8414] | OAuth 2.0      | EPOP adds new discovery fields to    |
-   |           | Authorization  | the well-known document:             |
-   |           | Server         | epop_supported,                      |
-   |           | Metadata       | epop_ntk_types_supported,            |
-   |           |                | epop_key_rotation_supported, and     |
-   |           |                | the epop_cnonce_* family.            |
-   +-----------+----------------+--------------------------------------+
-   | [RFC7638] | JSON Web Key   | EPOP uses the SHA-256 JWK            |
-   |           | (JWK)          | thumbprint (cnf.jkt) as its          |
-   |           | Thumbprint     | primary key binding primitive —      |
-   |           |                | embedded in every issued token       |
-   |           |                | and checked by the RS as its main    |
-   |           |                | defense against token                |
-   |           |                | substitution.                        |
-   +-----------+----------------+--------------------------------------+
-   | [RFC7662] | OAuth 2.0      | EPOP extends introspection           |
-   |           | Token          | responses to include cnf.jkt.        |
-   |           | Introspection  | For opaque tokens the AS returns     |
-   |           |                | the server-side registered client    |
-   |           |                | EPOP public key; for JWT tokens      |
-   |           |                | it is extracted from the token's     |
-   |           |                | own claim.  Introspection            |
-   |           |                | requests may themselves be EPOP-     |
-   |           |                | wrapped to authenticate the          |
-   |           |                | caller.                              |
-   +-----------+----------------+--------------------------------------+
-   | [RFC8693] | OAuth 2.0      | The subject_token travels inside     |
-   |           | Token Exchange | EPOP ntk, requiring the              |
-   |           |                | requesting service to prove          |
-   |           |                | possession of the key bound to       |
-   |           |                | that token before an exchange is     |
-   |           |                | granted.                             |
-   +-----------+----------------+--------------------------------------+
-   | [RFC7009] | OAuth 2.0      | The token to be revoked travels      |
-   |           | Token          | inside EPOP ntk; the AS verifies     |
-   |           | Revocation     | key binding before revoking,         |
-   |           |                | preventing third-party               |
-   |           |                | revocation.                          |
-   +-----------+----------------+--------------------------------------+
-   | [RFC9126] | OAuth 2.0      | EPOP extends PAR to let the          |
-   |           | Pushed         | client declare cnf.jkt at the        |
-   |           | Authorization  | earliest point in the flow, pre-     |
-   |           | Requests (PAR) | binding the authorization code       |
-   |           |                | before the browser redirect.         |
-   +-----------+----------------+--------------------------------------+
-   | [RFC5869] | HMAC-based Key | EPOP uses HKDF-SHA256 to derive a    |
-   |           | Derivation     | per-client key from the optional     |
-   |           | Function       | server-controlled                    |
-   |           | (HKDF)         | epop_cnonce_seed and the client's    |
-   |           |                | public key, enabling stateless       |
-   |           |                | offline cnonce computation.          |
-   +-----------+----------------+--------------------------------------+
-
-                                  Table 13
 
 Acknowledgments
 

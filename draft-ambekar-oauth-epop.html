@@ -4,17 +4,20 @@
 <meta charset="utf-8">
 <meta content="Common,Latin" name="scripts">
 <meta content="initial-scale=1.0" name="viewport">
-<title>Enveloped Proof of Possession (EPOP) for OAuth 2.0</title>
+<title>JSON Web Token (JWT) Profile for OAuth 2.0 Enveloped Proof of Possession (EPOP)</title>
 <meta content="Ashwin Ambekar" name="author">
-<meta content='
-       This document specifies Enveloped Proof of Possession (EPOP), a "proof-first" security model for OAuth 2.0 in which an EPOP JWT (type  epop+jwt ) serves as the outer cryptographic envelope, nesting the OAuth credential — an authorization code, access token, or refresh token — within its  ntk  (Nested Token) claim. By decoupling the cryptographic proof from transport-specific headers, EPOP produces a single, unified credential that operates transparently across HTTP and non-HTTP transports alike, including MQTT, Kafka, the Model Context Protocol (MCP), and SASL-based protocols such as those defined in  . EPOP extends   (DPoP) by replacing HTTP-specific  htm / htu  claims with a protocol-neutral  rctx  (Request Context) object, embedding the credential within the proof rather than alongside it, and introducing an offline-derived client nonce ( cnonce ) that eliminates the server-issued nonce acquisition round-trip and enables stateless nonce handling and validation; to support SASL-based protocols, this document further defines  OAUTHEPOP , a new mechanism extending   with sender-constraining support. EPOP also defines a mechanism for cryptographic key rotation during the refresh token exchange, enabling secure long-term key management without interrupting active sessions. 
-    ' name="description">
+<meta content="
+       This specification defines a profile for OAuth 2.0 ( ) credentials — authorization codes, access tokens, and refresh tokens — issued as enveloped JSON Web Tokens (JWT) ( ) with sender-constraining proof of possession. Authorization servers, resource servers, and clients from different vendors can leverage this profile to issue, transmit, and validate sender-constrained tokens in an interoperable manner across HTTP and non-HTTP transports alike, including MQTT, Kafka, the Model Context Protocol (MCP), and SASL-based protocols such as those defined in  . 
+       The profile defines the  epop+jwt  token type, in which access tokens and refresh tokens are nested within the  ntk  (Nested Token) claim of a signed JWT envelope. In authorization code exchange flows, the authorization code travels as the standard  code  form parameter and the EPOP token provides only  cnf.jkt  key binding. For all other flows, the client's proof of key possession and the credential are a single, inseparable cryptographic object. The profile introduces a protocol-neutral  rctx  (Request Context) object in place of the HTTP-specific  htm / htu  claims of  , an offline-derived client nonce ( cnonce ) that eliminates the server-issued nonce round-trip and enables stateless nonce validation, and a mechanism for cryptographic key rotation during the refresh token exchange. To support SASL-based protocols, this document further defines  OAUTHEPOP , a new SASL mechanism extending   with sender-constraining support. 
+    " name="description">
 <meta content="xml2rfc 3.33.0" name="generator">
 <meta content="EPOP" name="keyword">
 <meta content="oauth" name="keyword">
 <meta content="proof-of-possession" name="keyword">
 <meta content="sender-constrained" name="keyword">
 <meta content="token binding" name="keyword">
+<meta content="jwt profile" name="keyword">
+<meta content="token profile" name="keyword">
 <meta content="draft-ambekar-oauth-epop-latest" name="ietf.draft">
 <!-- Generator version information:
   xml2rfc 3.33.0
@@ -1053,7 +1056,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Ambekar</td>
-<td class="center">Expires 5 November 2026</td>
+<td class="center">Expires 6 November 2026</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1061,17 +1064,17 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <div id="internal-metadata" class="document-information">
 <dl id="identifiers">
 <dt class="label-workgroup">Workgroup:</dt>
-<dd class="workgroup">OAuth Working Group</dd>
+<dd class="workgroup">Web Authorization Protocol</dd>
 <dt class="label-internet-draft">Internet-Draft:</dt>
 <dd class="internet-draft">draft-ambekar-oauth-epop-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-05-04" class="published">4 May 2026</time>
+<time datetime="2026-05-05" class="published">5 May 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Standards Track</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2026-11-05">5 November 2026</time></dd>
+<dd class="expires"><time datetime="2026-11-06">6 November 2026</time></dd>
 <dt class="label-authors">Author:</dt>
 <dd class="authors">
 <div class="author">
@@ -1081,10 +1084,11 @@ svg :is([fill="white"], [fill^="#fff"]) {
 </dd>
 </dl>
 </div>
-<h1 id="title">Enveloped Proof of Possession (EPOP) for OAuth 2.0</h1>
+<h1 id="title">JSON Web Token (JWT) Profile for OAuth 2.0 Enveloped Proof of Possession (EPOP)</h1>
 <section id="section-abstract">
       <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
-<p id="section-abstract-1">This document specifies Enveloped Proof of Possession (EPOP), a "proof-first" security model for OAuth 2.0 in which an EPOP JWT (type <code>epop+jwt</code>) serves as the outer cryptographic envelope, nesting the OAuth credential — an authorization code, access token, or refresh token — within its <code>ntk</code> (Nested Token) claim. By decoupling the cryptographic proof from transport-specific headers, EPOP produces a single, unified credential that operates transparently across HTTP and non-HTTP transports alike, including MQTT, Kafka, the Model Context Protocol (MCP), and SASL-based protocols such as those defined in <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span>. EPOP extends <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span> (DPoP) by replacing HTTP-specific <code>htm</code>/<code>htu</code> claims with a protocol-neutral <code>rctx</code> (Request Context) object, embedding the credential within the proof rather than alongside it, and introducing an offline-derived client nonce (<code>cnonce</code>) that eliminates the server-issued nonce acquisition round-trip and enables stateless nonce handling and validation; to support SASL-based protocols, this document further defines <code>OAUTHEPOP</code>, a new mechanism extending <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> with sender-constraining support. EPOP also defines a mechanism for cryptographic key rotation during the refresh token exchange, enabling secure long-term key management without interrupting active sessions.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+<p id="section-abstract-1">This specification defines a profile for OAuth 2.0 (<span>[<a href="#RFC6749" class="cite xref">RFC6749</a>]</span>) credentials — authorization codes, access tokens, and refresh tokens — issued as enveloped JSON Web Tokens (JWT) (<span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span>) with sender-constraining proof of possession. Authorization servers, resource servers, and clients from different vendors can leverage this profile to issue, transmit, and validate sender-constrained tokens in an interoperable manner across HTTP and non-HTTP transports alike, including MQTT, Kafka, the Model Context Protocol (MCP), and SASL-based protocols such as those defined in <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span>.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+<p id="section-abstract-2">The profile defines the <code>epop+jwt</code> token type, in which access tokens and refresh tokens are nested within the <code>ntk</code> (Nested Token) claim of a signed JWT envelope. In authorization code exchange flows, the authorization code travels as the standard <code>code</code> form parameter and the EPOP token provides only <code>cnf.jkt</code> key binding. For all other flows, the client's proof of key possession and the credential are a single, inseparable cryptographic object. The profile introduces a protocol-neutral <code>rctx</code> (Request Context) object in place of the HTTP-specific <code>htm</code>/<code>htu</code> claims of <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>, an offline-derived client nonce (<code>cnonce</code>) that eliminates the server-issued nonce round-trip and enables stateless nonce validation, and a mechanism for cryptographic key rotation during the refresh token exchange. To support SASL-based protocols, this document further defines <code>OAUTHEPOP</code>, a new SASL mechanism extending <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> with sender-constraining support.<a href="#section-abstract-2" class="pilcrow">¶</a></p>
 </section>
 <section class="note rfcEditorRemove" id="section-note.1">
       <h2 id="name-about-this-document">
@@ -1096,7 +1100,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
         Status information for this document may be found at <span><a href="https://datatracker.ietf.org/doc/draft-ambekar-oauth-epop/">https://datatracker.ietf.org/doc/draft-ambekar-oauth-epop/</a></span>.<a href="#section-note.1-2" class="pilcrow">¶</a></p>
 <p id="section-note.1-3">
         Discussion of this document takes place on the
-        oauth Working Group mailing list (<span><a href="mailto:oauth@ietf.org">mailto:oauth@ietf.org</a></span>),
+        Web Authorization Protocol Working Group mailing list (<span><a href="mailto:oauth@ietf.org">mailto:oauth@ietf.org</a></span>),
         which is archived at <span><a href="https://mailarchive.ietf.org/arch/browse/oauth/">https://mailarchive.ietf.org/arch/browse/oauth/</a></span>.
         Subscribe at <span><a href="https://www.ietf.org/mailman/listinfo/oauth/">https://www.ietf.org/mailman/listinfo/oauth/</a></span>.<a href="#section-note.1-3" class="pilcrow">¶</a></p>
 <p id="section-note.1-4">Source for this draft and an issue tracker can be found at
@@ -1121,7 +1125,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 5 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 6 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1159,10 +1163,15 @@ svg :is([fill="white"], [fill^="#fff"]) {
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2">
-            <p id="section-toc.1-1.2.1" class="keepWithNext"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-conventions-and-definitions" class="internal xref">Conventions and Definitions</a></p>
+            <p id="section-toc.1-1.2.1"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-conventions-and-definitions" class="internal xref">Conventions and Definitions</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2.2.1">
+                <p id="section-toc.1-1.2.2.1.1" class="keepWithNext"><a href="#section-2.1" class="auto internal xref">2.1</a>.  <a href="#name-conformance" class="internal xref">Conformance</a></p>
+</li>
+            </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3">
-            <p id="section-toc.1-1.3.1"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-epop-token-structure" class="internal xref">EPOP Token Structure</a></p>
+            <p id="section-toc.1-1.3.1"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-epop-token-profile" class="internal xref">EPOP Token Profile</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.1">
                 <p id="section-toc.1-1.3.2.1.1"><a href="#section-3.1" class="auto internal xref">3.1</a>.  <a href="#name-header" class="internal xref">Header</a></p>
@@ -1181,16 +1190,19 @@ svg :is([fill="white"], [fill^="#fff"]) {
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4">
-            <p id="section-toc.1-1.4.1"><a href="#section-4" class="auto internal xref">4</a>.  <a href="#name-creating-an-epop-token" class="internal xref">Creating an EPOP Token</a></p>
+            <p id="section-toc.1-1.4.1"><a href="#section-4" class="auto internal xref">4</a>.  <a href="#name-issuing-and-constructing-ep" class="internal xref">Issuing and Constructing EPOP Tokens</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.1">
-                <p id="section-toc.1-1.4.2.1.1"><a href="#section-4.1" class="auto internal xref">4.1</a>.  <a href="#name-prerequisites" class="internal xref">Prerequisites</a></p>
+                <p id="section-toc.1-1.4.2.1.1"><a href="#section-4.1" class="auto internal xref">4.1</a>.  <a href="#name-issuing-epop-tokens" class="internal xref">Issuing EPOP Tokens</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.2">
-                <p id="section-toc.1-1.4.2.2.1"><a href="#section-4.2" class="auto internal xref">4.2</a>.  <a href="#name-construction" class="internal xref">Construction</a></p>
+                <p id="section-toc.1-1.4.2.2.1"><a href="#section-4.2" class="auto internal xref">4.2</a>.  <a href="#name-client-prerequisites" class="internal xref">Client Prerequisites</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.3">
-                <p id="section-toc.1-1.4.2.3.1"><a href="#section-4.3" class="auto internal xref">4.3</a>.  <a href="#name-inner-epop-token-for-key-ro" class="internal xref">Inner EPOP Token for Key Rotation</a></p>
+                <p id="section-toc.1-1.4.2.3.1"><a href="#section-4.3" class="auto internal xref">4.3</a>.  <a href="#name-constructing-epop-tokens" class="internal xref">Constructing EPOP Tokens</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.4">
+                <p id="section-toc.1-1.4.2.4.1"><a href="#section-4.4" class="auto internal xref">4.4</a>.  <a href="#name-inner-epop-token-for-key-ro" class="internal xref">Inner EPOP Token for Key Rotation</a></p>
 </li>
             </ul>
 </li>
@@ -1269,6 +1281,14 @@ svg :is([fill="white"], [fill^="#fff"]) {
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.2">
                 <p id="section-toc.1-1.10.2.2.1"><a href="#section-10.2" class="auto internal xref">10.2</a>.  <a href="#name-token-introspection" class="internal xref">Token Introspection</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.2.2.1">
+                    <p id="section-toc.1-1.10.2.2.2.1.1"><a href="#section-10.2.1" class="auto internal xref">10.2.1</a>.  <a href="#name-mode-1-inner-token-introspe" class="internal xref">Mode 1: Inner Token Introspection</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.2.2.2">
+                    <p id="section-toc.1-1.10.2.2.2.2.1"><a href="#section-10.2.2" class="auto internal xref">10.2.2</a>.  <a href="#name-mode-2-full-epop-token-intr" class="internal xref">Mode 2: Full EPOP Token Introspection</a></p>
+</li>
+                </ul>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.3">
                 <p id="section-toc.1-1.10.2.3.1"><a href="#section-10.3" class="auto internal xref">10.3</a>.  <a href="#name-token-exchange" class="internal xref">Token Exchange</a></p>
@@ -1342,67 +1362,84 @@ svg :is([fill="white"], [fill^="#fff"]) {
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13">
-            <p id="section-toc.1-1.13.1"><a href="#section-13" class="auto internal xref">13</a>. <a href="#name-security-considerations" class="internal xref">Security Considerations</a></p>
-<ul class="compact toc ulBare ulEmpty">
-<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.1">
-                <p id="section-toc.1-1.13.2.1.1"><a href="#section-13.1" class="auto internal xref">13.1</a>.  <a href="#name-summary" class="internal xref">Summary</a></p>
-</li>
-              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.2">
-                <p id="section-toc.1-1.13.2.2.1"><a href="#section-13.2" class="auto internal xref">13.2</a>.  <a href="#name-private-key-protection" class="internal xref">Private Key Protection</a></p>
-</li>
-              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.3">
-                <p id="section-toc.1-1.13.2.3.1"><a href="#section-13.3" class="auto internal xref">13.3</a>.  <a href="#name-token-substitution-attacks" class="internal xref">Token Substitution Attacks</a></p>
-</li>
-              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.4">
-                <p id="section-toc.1-1.13.2.4.1"><a href="#section-13.4" class="auto internal xref">13.4</a>.  <a href="#name-cross-protocol-replay" class="internal xref">Cross-Protocol Replay</a></p>
-</li>
-              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.5">
-                <p id="section-toc.1-1.13.2.5.1"><a href="#section-13.5" class="auto internal xref">13.5</a>.  <a href="#name-key-rotation-security" class="internal xref">Key Rotation Security</a></p>
-</li>
-            </ul>
+            <p id="section-toc.1-1.13.1"><a href="#section-13" class="auto internal xref">13</a>. <a href="#name-relationship-to-other-speci" class="internal xref">Relationship to Other Specifications</a></p>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14">
-            <p id="section-toc.1-1.14.1"><a href="#section-14" class="auto internal xref">14</a>. <a href="#name-iana-considerations" class="internal xref">IANA Considerations</a></p>
+            <p id="section-toc.1-1.14.1"><a href="#section-14" class="auto internal xref">14</a>. <a href="#name-security-considerations" class="internal xref">Security Considerations</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14.2.1">
-                <p id="section-toc.1-1.14.2.1.1"><a href="#section-14.1" class="auto internal xref">14.1</a>.  <a href="#name-http-authentication-scheme-" class="internal xref">HTTP Authentication Scheme Registration</a></p>
+                <p id="section-toc.1-1.14.2.1.1"><a href="#section-14.1" class="auto internal xref">14.1</a>.  <a href="#name-summary" class="internal xref">Summary</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14.2.2">
-                <p id="section-toc.1-1.14.2.2.1"><a href="#section-14.2" class="auto internal xref">14.2</a>.  <a href="#name-jwt-claims-registration" class="internal xref">JWT Claims Registration</a></p>
+                <p id="section-toc.1-1.14.2.2.1"><a href="#section-14.2" class="auto internal xref">14.2</a>.  <a href="#name-private-key-protection" class="internal xref">Private Key Protection</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14.2.3">
-                <p id="section-toc.1-1.14.2.3.1"><a href="#section-14.3" class="auto internal xref">14.3</a>.  <a href="#name-jwt-type-registration" class="internal xref">JWT Type Registration</a></p>
+                <p id="section-toc.1-1.14.2.3.1"><a href="#section-14.3" class="auto internal xref">14.3</a>.  <a href="#name-token-substitution-attacks" class="internal xref">Token Substitution Attacks</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14.2.4">
-                <p id="section-toc.1-1.14.2.4.1"><a href="#section-14.4" class="auto internal xref">14.4</a>.  <a href="#name-oauth-authorization-server-" class="internal xref">OAuth Authorization Server Metadata</a></p>
+                <p id="section-toc.1-1.14.2.4.1"><a href="#section-14.4" class="auto internal xref">14.4</a>.  <a href="#name-cross-protocol-replay" class="internal xref">Cross-Protocol Replay</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14.2.5">
-                <p id="section-toc.1-1.14.2.5.1"><a href="#section-14.5" class="auto internal xref">14.5</a>.  <a href="#name-oauth-protected-resource-me" class="internal xref">OAuth Protected Resource Metadata</a></p>
-</li>
-              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14.2.6">
-                <p id="section-toc.1-1.14.2.6.1"><a href="#section-14.6" class="auto internal xref">14.6</a>.  <a href="#name-sasl-mechanism-registration" class="internal xref">SASL Mechanism Registration</a></p>
+                <p id="section-toc.1-1.14.2.5.1"><a href="#section-14.5" class="auto internal xref">14.5</a>.  <a href="#name-key-rotation-security" class="internal xref">Key Rotation Security</a></p>
 </li>
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15">
-            <p id="section-toc.1-1.15.1"><a href="#section-15" class="auto internal xref">15</a>. <a href="#name-references" class="internal xref">References</a></p>
+            <p id="section-toc.1-1.15.1"><a href="#section-15" class="auto internal xref">15</a>. <a href="#name-privacy-considerations" class="internal xref">Privacy Considerations</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15.2.1">
-                <p id="section-toc.1-1.15.2.1.1"><a href="#section-15.1" class="auto internal xref">15.1</a>.  <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+                <p id="section-toc.1-1.15.2.1.1"><a href="#section-15.1" class="auto internal xref">15.1</a>.  <a href="#name-credential-visibility-in-lo" class="internal xref">Credential Visibility in Logs</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15.2.2">
-                <p id="section-toc.1-1.15.2.2.1"><a href="#section-15.2" class="auto internal xref">15.2</a>.  <a href="#name-informative-references" class="internal xref">Informative References</a></p>
+                <p id="section-toc.1-1.15.2.2.1"><a href="#section-15.2" class="auto internal xref">15.2</a>.  <a href="#name-key-identifier-as-tracking-" class="internal xref">Key Identifier as Tracking Vector</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15.2.3">
+                <p id="section-toc.1-1.15.2.3.1"><a href="#section-15.3" class="auto internal xref">15.3</a>.  <a href="#name-resource-uri-disclosure" class="internal xref">Resource URI Disclosure</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15.2.4">
+                <p id="section-toc.1-1.15.2.4.1"><a href="#section-15.4" class="auto internal xref">15.4</a>.  <a href="#name-minimal-disclosure" class="internal xref">Minimal Disclosure</a></p>
 </li>
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16">
-            <p id="section-toc.1-1.16.1"><a href="#appendix-A" class="auto internal xref">Appendix A</a>.  <a href="#name-relationship-to-other-speci" class="internal xref">Relationship to Other Specifications</a></p>
+            <p id="section-toc.1-1.16.1"><a href="#section-16" class="auto internal xref">16</a>. <a href="#name-iana-considerations" class="internal xref">IANA Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.1">
+                <p id="section-toc.1-1.16.2.1.1"><a href="#section-16.1" class="auto internal xref">16.1</a>.  <a href="#name-http-authentication-scheme-" class="internal xref">HTTP Authentication Scheme Registration</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.2">
+                <p id="section-toc.1-1.16.2.2.1"><a href="#section-16.2" class="auto internal xref">16.2</a>.  <a href="#name-jwt-claims-registration" class="internal xref">JWT Claims Registration</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.3">
+                <p id="section-toc.1-1.16.2.3.1"><a href="#section-16.3" class="auto internal xref">16.3</a>.  <a href="#name-jwt-type-registration" class="internal xref">JWT Type Registration</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.4">
+                <p id="section-toc.1-1.16.2.4.1"><a href="#section-16.4" class="auto internal xref">16.4</a>.  <a href="#name-oauth-authorization-server-" class="internal xref">OAuth Authorization Server Metadata</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.5">
+                <p id="section-toc.1-1.16.2.5.1"><a href="#section-16.5" class="auto internal xref">16.5</a>.  <a href="#name-oauth-protected-resource-me" class="internal xref">OAuth Protected Resource Metadata</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.6">
+                <p id="section-toc.1-1.16.2.6.1"><a href="#section-16.6" class="auto internal xref">16.6</a>.  <a href="#name-sasl-mechanism-registration" class="internal xref">SASL Mechanism Registration</a></p>
+</li>
+            </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.17">
-            <p id="section-toc.1-1.17.1"><a href="#appendix-B" class="auto internal xref"></a><a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
+            <p id="section-toc.1-1.17.1"><a href="#section-17" class="auto internal xref">17</a>. <a href="#name-references" class="internal xref">References</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.17.2.1">
+                <p id="section-toc.1-1.17.2.1.1"><a href="#section-17.1" class="auto internal xref">17.1</a>.  <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.17.2.2">
+                <p id="section-toc.1-1.17.2.2.1"><a href="#section-17.2" class="auto internal xref">17.2</a>.  <a href="#name-informative-references" class="internal xref">Informative References</a></p>
+</li>
+            </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.18">
-            <p id="section-toc.1-1.18.1"><a href="#appendix-C" class="auto internal xref"></a><a href="#name-authors-address" class="internal xref">Author's Address</a></p>
+            <p id="section-toc.1-1.18.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.19">
+            <p id="section-toc.1-1.19.1"><a href="#appendix-B" class="auto internal xref"></a><a href="#name-authors-address" class="internal xref">Author's Address</a></p>
 </li>
         </ul>
 </nav>
@@ -1413,9 +1450,9 @@ svg :is([fill="white"], [fill^="#fff"]) {
       <h2 id="name-introduction">
 <a href="#section-1" class="section-number selfRef">1. </a><a href="#name-introduction" class="section-name selfRef">Introduction</a>
       </h2>
-<p id="section-1-1">Enveloped Proof of Possession (EPOP) functions as a proof-first credential model for OAuth 2.0 (<span>[<a href="#RFC6749" class="cite xref">RFC6749</a>]</span>) in which the OAuth credential — an authorization code, access token, or refresh token — is embedded <em>inside</em> a signed JSON Web Token (JWT) (<span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span>) proof rather than transmitted alongside it. The client constructs an EPOP token, a JWT with <code>typ: epop+jwt</code>, nesting the credential within its <code>ntk</code> (Nested Token) claim and signing the entire envelope with the client's private key. Because the credential is bound inside the signed structure, recipients verifying the EPOP token authenticate both key possession and the credential in a single operation: there is no credential without a proof, and no proof without a credential.<a href="#section-1-1" class="pilcrow">¶</a></p>
-<p id="section-1-2">OAuth 2.0 access tokens are bearer tokens by default: any party in possession of a token can use it until it expires. DPoP (<span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>) addressed token theft in HTTP environments by binding access tokens to a client's public key and requiring a fresh signed proof on each request. However, DPoP has structural limitations that prevent it from serving as a general proof-of-possession mechanism: its <code>htm</code> and <code>htu</code> claims are HTTP-specific and carry no meaning over MQTT, Kafka, gRPC, SASL, or the Model Context Protocol (MCP); the credential and proof travel as separate objects in distinct headers and can be intercepted and recombined independently; proof-of-possession is not extended to authorization codes or refresh tokens; and server-issued nonces require an initial round-trip and distributed server-side nonce state. SASL-based deployments built on <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> face an additional gap: bearer tokens reach non-HTTP servers with no mechanism for the client to prove it is the intended holder.<a href="#section-1-2" class="pilcrow">¶</a></p>
-<p id="section-1-3">EPOP addresses these limitations through a single architectural shift: embedding the credential inside the proof. Because the credential lives inside the signed <code>epop+jwt</code> envelope, it is inseparable from the proof and covers authorization codes, access tokens, and refresh tokens alike. The HTTP-specific <code>htm</code>/<code>htu</code> claims are replaced by a protocol-neutral <code>rctx</code> (Request Context) object — a URI or URN identifying the resource and a free-form action string — enabling operation across any transport without protocol-specific adaptation. An offline-derived <code>cnonce</code> eliminates the server-issued nonce round-trip and enables stateless nonce validation. For SASL-based protocols, this document defines <code>OAUTHEPOP</code>, a new SASL mechanism extending <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> with sender-constraining support via a new <code>EPOP</code> auth type; all behaviors defined in <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> remain unchanged. EPOP further defines cryptographic key rotation during the refresh token exchange, enabling secure long-term key management without interrupting active sessions.<a href="#section-1-3" class="pilcrow">¶</a></p>
+<p id="section-1-1">The OAuth 2.0 framework (<span>[<a href="#RFC6749" class="cite xref">RFC6749</a>]</span>) does not mandate a format for sender-constrained tokens that operates across both HTTP and non-HTTP transports. DPoP (<span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>) introduced sender-constraining for HTTP environments; SASL OAuth mechanisms (<span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span>) extended OAuth token usage to protocols such as IMAP and SMTP; yet no interoperable profile exists that unifies sender-constraining, credential enveloping, and transport agnosticism in a single token format.<a href="#section-1-1" class="pilcrow">¶</a></p>
+<p id="section-1-2">This specification addresses that gap by defining a profile for OAuth 2.0 credentials issued as enveloped JSON Web Tokens (JWT) (<span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span>). The profile defines the <code>epop+jwt</code> token type, in which an EPOP token nests the OAuth credential within its <code>ntk</code> (Nested Token) claim and signs the entire structure with the client's private key. Authorization servers, resource servers, and clients from different vendors can implement this profile to issue, transmit, and validate sender-constrained tokens in an interoperable manner.<a href="#section-1-2" class="pilcrow">¶</a></p>
+<p id="section-1-3">The profile is designed so that the credential and proof are a single, inseparable cryptographic object — there is no credential without a proof, and no proof without a credential. A protocol-neutral <code>rctx</code> (Request Context) object replaces the HTTP-specific <code>htm</code>/<code>htu</code> claims of <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>, enabling EPOP tokens to operate over any transport — HTTP, MQTT, Kafka, gRPC, the Model Context Protocol (MCP), and SASL-based protocols — without protocol-specific adaptation. An offline-derived client nonce (<code>cnonce</code>) eliminates the server-issued nonce round-trip required by <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span> and enables stateless nonce validation. Coverage extends to authorization codes and refresh tokens as well as access tokens, and the profile defines atomic key rotation during the refresh token exchange. For SASL-based protocols, this document defines <code>OAUTHEPOP</code>, a new SASL mechanism extending <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> with sender-constraining support; all behaviors defined in <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> remain unchanged.<a href="#section-1-3" class="pilcrow">¶</a></p>
 <div id="comparison-dpop">
 <section id="section-1.1">
         <h3 id="name-comparison-with-dpop">
@@ -1529,12 +1566,12 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
 <span class="break"></span><dl class="dlParallel" id="section-2-3">
         <dt id="section-2-3.1">EPOP Token:</dt>
         <dd style="margin-left: 1.5em" id="section-2-3.2">
-          <p id="section-2-3.2.1">A signed JWT (<span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span>) with <code>typ: epop+jwt</code>, signed by the client's private key, that contains an OAuth 2.0 credential in the <code>ntk</code> claim.<a href="#section-2-3.2.1" class="pilcrow">¶</a></p>
+          <p id="section-2-3.2.1">A signed JWT (<span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span>) with <code>typ: epop+jwt</code>, signed by the client's private key. Contains an OAuth 2.0 credential in the <code>ntk</code> claim when used for resource access or token refresh; in authorization code exchange flows contains only <code>cnf.jkt</code> for key binding, with the authorization code traveling as the standard <code>code</code> form parameter.<a href="#section-2-3.2.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 <dt id="section-2-3.3">Nested Token (ntk):</dt>
         <dd style="margin-left: 1.5em" id="section-2-3.4">
-          <p id="section-2-3.4.1">The OAuth 2.0 credential (authorization code, access token, refresh token, or another EPOP token) embedded inside an EPOP token's payload.<a href="#section-2-3.4.1" class="pilcrow">¶</a></p>
+          <p id="section-2-3.4.1">The OAuth 2.0 credential (access token, refresh token, or another EPOP token for key rotation) embedded inside an EPOP token's payload. Not present in EPOP tokens used for authorization code exchange.<a href="#section-2-3.4.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 <dt id="section-2-3.5">Request Context (rctx):</dt>
@@ -1568,12 +1605,37 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
 </dd>
       <dd class="break"></dd>
 </dl>
+<div id="conformance">
+<section id="section-2.1">
+        <h3 id="name-conformance">
+<a href="#section-2.1" class="section-number selfRef">2.1. </a><a href="#name-conformance" class="section-name selfRef">Conformance</a>
+        </h3>
+<p id="section-2.1-1">This specification defines normative requirements for three conformance roles:<a href="#section-2.1-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-2.1-2">
+          <dt id="section-2.1-2.1">EPOP-issuing Authorization Server:</dt>
+          <dd style="margin-left: 1.5em" id="section-2.1-2.2">
+            <p id="section-2.1-2.2.1">An AS that issues EPOP-bound tokens <span class="bcp14">MUST</span> bind all issued tokens to the client's public key via <code>cnf.jkt</code>, <span class="bcp14">MUST</span> validate EPOP tokens presented at the token endpoint per <a href="#as-validation" class="auto internal xref">Section 5.1</a>, and <span class="bcp14">MUST</span> publish EPOP capability metadata per <a href="#discovery" class="auto internal xref">Section 11</a>.<a href="#section-2.1-2.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-2.1-2.3">EPOP-validating Resource Server:</dt>
+          <dd style="margin-left: 1.5em" id="section-2.1-2.4">
+            <p id="section-2.1-2.4.1">An RS that accepts EPOP tokens <span class="bcp14">MUST</span> verify the outer envelope signature, <span class="bcp14">MUST</span> enforce <code>rctx</code> binding, and <span class="bcp14">MUST</span> verify <code>cnf.jkt</code> against the key in the EPOP token header per <a href="#rs-validation" class="auto internal xref">Section 5.2</a>.<a href="#section-2.1-2.4.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-2.1-2.5">EPOP Client:</dt>
+          <dd style="margin-left: 1.5em" id="section-2.1-2.6">
+            <p id="section-2.1-2.6.1">A client producing EPOP tokens <span class="bcp14">MUST</span> sign each token with the private key whose public component appears in the EPOP token header, <span class="bcp14">MUST NOT</span> reuse <code>jti</code> values, and <span class="bcp14">MUST</span> derive <code>cnonce</code> per <a href="#cnonce" class="auto internal xref">Section 12</a> when the AS requires it.<a href="#section-2.1-2.6.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
 </section>
 </div>
-<div id="token-structure">
+</section>
+</div>
+<div id="token-profile">
 <section id="section-3">
-      <h2 id="name-epop-token-structure">
-<a href="#section-3" class="section-number selfRef">3. </a><a href="#name-epop-token-structure" class="section-name selfRef">EPOP Token Structure</a>
+      <h2 id="name-epop-token-profile">
+<a href="#section-3" class="section-number selfRef">3. </a><a href="#name-epop-token-profile" class="section-name selfRef">EPOP Token Profile</a>
       </h2>
 <p id="section-3-1">An EPOP token is a signed JWT (<span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span>) with <code>typ: epop+jwt</code>.<a href="#section-3-1" class="pilcrow">¶</a></p>
 <div id="token-header">
@@ -1733,10 +1795,8 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
               <td class="text-left" rowspan="1" colspan="1">
                 <code>ntk</code>
 </td>
-              <td class="text-left" rowspan="1" colspan="1">
-                <span class="bcp14">REQUIRED</span>
-</td>
-              <td class="text-left" rowspan="1" colspan="1">The nested OAuth 2.0 credential. A compact-serialized JWT or a Base64URL-encoded opaque string. See <a href="#ntk-values" class="auto internal xref">Section 3.3</a>.</td>
+              <td class="text-left" rowspan="1" colspan="1">CONDITIONAL</td>
+              <td class="text-left" rowspan="1" colspan="1">The nested OAuth 2.0 credential. <span class="bcp14">REQUIRED</span> when the EPOP token is used for resource access, refresh token grant, token revocation, or introspection. OMITTED in authorization code exchange flows, where the authorization code travels as the standard <code>code</code> form parameter. A compact-serialized JWT or a Base64URL-encoded opaque string. See <a href="#ntk-values" class="auto internal xref">Section 3.3</a>.</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
@@ -1844,81 +1904,91 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
               <td class="text-left" rowspan="1" colspan="1">Base64URL-encoded opaque string</td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">Opaque authorization code</td>
-              <td class="text-left" rowspan="1" colspan="1">Base64URL-encoded opaque string</td>
-            </tr>
-            <tr>
               <td class="text-left" rowspan="1" colspan="1">Inner EPOP token (key rotation)</td>
               <td class="text-left" rowspan="1" colspan="1">Compact-serialized EPOP JWT</td>
             </tr>
           </tbody>
         </table>
+<p id="section-3.3-2">Note: Authorization codes are NOT embedded in <code>ntk</code>. In authorization code exchange flows the code travels as the standard <code>code</code> form parameter; the EPOP token provides only <code>cnf.jkt</code> key binding.<a href="#section-3.3-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
 </div>
 <div id="creating-epop">
 <section id="section-4">
-      <h2 id="name-creating-an-epop-token">
-<a href="#section-4" class="section-number selfRef">4. </a><a href="#name-creating-an-epop-token" class="section-name selfRef">Creating an EPOP Token</a>
+      <h2 id="name-issuing-and-constructing-ep">
+<a href="#section-4" class="section-number selfRef">4. </a><a href="#name-issuing-and-constructing-ep" class="section-name selfRef">Issuing and Constructing EPOP Tokens</a>
       </h2>
-<div id="creation-prerequisites">
+<div id="issuing-epop">
 <section id="section-4.1">
-        <h3 id="name-prerequisites">
-<a href="#section-4.1" class="section-number selfRef">4.1. </a><a href="#name-prerequisites" class="section-name selfRef">Prerequisites</a>
+        <h3 id="name-issuing-epop-tokens">
+<a href="#section-4.1" class="section-number selfRef">4.1. </a><a href="#name-issuing-epop-tokens" class="section-name selfRef">Issuing EPOP Tokens</a>
         </h3>
-<p id="section-4.1-1">The client <span class="bcp14">MUST</span> have:<a href="#section-4.1-1" class="pilcrow">¶</a></p>
+<p id="section-4.1-1">When an AS issues tokens in response to a valid EPOP-authenticated request, it <span class="bcp14">MUST</span> bind the issued token to the client's public key by including the <code>cnf.jkt</code> claim — the SHA-256 JWK Thumbprint (<span>[<a href="#RFC7638" class="cite xref">RFC7638</a>]</span>) of the public key from the EPOP token's <code>jwk</code> header parameter — in the issued token.<a href="#section-4.1-1" class="pilcrow">¶</a></p>
+<p id="section-4.1-2">For JWT access tokens (<span>[<a href="#RFC9068" class="cite xref">RFC9068</a>]</span>), the AS includes <code>cnf.jkt</code> directly in the JWT payload. For opaque tokens, the AS <span class="bcp14">MUST</span> record the association between the token and the client's <code>cnf.jkt</code> in a server-side store accessible to the introspection endpoint (<a href="#token-introspection" class="auto internal xref">Section 10.2</a>).<a href="#section-4.1-2" class="pilcrow">¶</a></p>
+<p id="section-4.1-3">The AS <span class="bcp14">MUST NOT</span> issue EPOP-bound tokens unless it has successfully validated the EPOP token presented at the token endpoint per <a href="#as-validation" class="auto internal xref">Section 5.1</a>.<a href="#section-4.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="creation-prerequisites">
+<section id="section-4.2">
+        <h3 id="name-client-prerequisites">
+<a href="#section-4.2" class="section-number selfRef">4.2. </a><a href="#name-client-prerequisites" class="section-name selfRef">Client Prerequisites</a>
+        </h3>
+<p id="section-4.2-1">The client <span class="bcp14">MUST</span> have:<a href="#section-4.2-1" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-4.1-2.1">
-            <p id="section-4.1-2.1.1">An asymmetric key pair. The private key is held exclusively by the client; the public key is embedded in every EPOP token header.<a href="#section-4.1-2.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="section-4.2-2.1">
+            <p id="section-4.2-2.1.1">An asymmetric key pair. The private key is held exclusively by the client; the public key is embedded in every EPOP token header.<a href="#section-4.2-2.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-4.1-2.2">
-            <p id="section-4.1-2.2.1">A reliable source of high-entropy identifiers for <code>jti</code> (e.g., UUID v4 or CSPRNG-generated value).<a href="#section-4.1-2.2.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-4.2-2.2">
+            <p id="section-4.2-2.2.1">A reliable source of high-entropy identifiers for <code>jti</code> (e.g., UUID v4 or CSPRNG-generated value).<a href="#section-4.2-2.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-4.1-2.3">
-            <p id="section-4.1-2.3.1">A trusted clock for <code>iat</code>.<a href="#section-4.1-2.3.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-4.2-2.3">
+            <p id="section-4.2-2.3.1">A trusted clock for <code>iat</code>.<a href="#section-4.2-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>
 </div>
 <div id="token-construction">
-<section id="section-4.2">
-        <h3 id="name-construction">
-<a href="#section-4.2" class="section-number selfRef">4.2. </a><a href="#name-construction" class="section-name selfRef">Construction</a>
+<section id="section-4.3">
+        <h3 id="name-constructing-epop-tokens">
+<a href="#section-4.3" class="section-number selfRef">4.3. </a><a href="#name-constructing-epop-tokens" class="section-name selfRef">Constructing EPOP Tokens</a>
         </h3>
-<p id="section-4.2-1">Step 1 — Prepare the JOSE header with <code>typ: epop+jwt</code>, the signing algorithm, and the public key JWK.<a href="#section-4.2-1" class="pilcrow">¶</a></p>
-<p id="section-4.2-2">Step 2 — Prepare the payload. Encode the credential in <code>ntk</code>:<a href="#section-4.2-2" class="pilcrow">¶</a></p>
+<p id="section-4.3-1">Step 1 — Prepare the JOSE header with <code>typ: epop+jwt</code>, the signing algorithm, and the public key JWK.<a href="#section-4.3-1" class="pilcrow">¶</a></p>
+<p id="section-4.3-2">Step 2 — Prepare the payload. Include <code>ntk</code> when the EPOP token carries a credential:<a href="#section-4.3-2" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-4.2-3.1">
-            <p id="section-4.2-3.1.1">If the credential is a JWT: use its compact serialization directly.<a href="#section-4.2-3.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="section-4.3-3.1">
+            <p id="section-4.3-3.1.1">If the credential is a JWT: use its compact serialization directly as the <code>ntk</code> value.<a href="#section-4.3-3.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-4.2-3.2">
-            <p id="section-4.2-3.2.1">If the credential is opaque: Base64URL-encode it.<a href="#section-4.2-3.2.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-4.3-3.2">
+            <p id="section-4.3-3.2.1">If the credential is opaque: Base64URL-encode it as the <code>ntk</code> value.<a href="#section-4.3-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-4.3-3.3">
+            <p id="section-4.3-3.3.1">In authorization code exchange flows, omit <code>ntk</code> entirely; the authorization code travels as the <code>code</code> form parameter.<a href="#section-4.3-3.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-4.2-4">Include <code>cnf.jkt</code> only when establishing or rotating the key binding (authorization code exchange, PAR, or key rotation), not on every resource access.<a href="#section-4.2-4" class="pilcrow">¶</a></p>
-<p id="section-4.2-5">Step 3 — Compute the JWS signature over <code>ASCII(BASE64URL(UTF8(header)) || '.' || BASE64URL(payload))</code> using the client's private key with the declared algorithm.<a href="#section-4.2-5" class="pilcrow">¶</a></p>
-<p id="section-4.2-6">Step 4 — Produce the compact serialization:<a href="#section-4.2-6" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="section-4.2-7">
+<p id="section-4.3-4">Include <code>cnf.jkt</code> only when establishing or rotating the key binding (authorization code exchange, PAR, or key rotation), not on every resource access.<a href="#section-4.3-4" class="pilcrow">¶</a></p>
+<p id="section-4.3-5">Step 3 — Compute the JWS signature over <code>ASCII(BASE64URL(UTF8(header)) || '.' || BASE64URL(payload))</code> using the client's private key with the declared algorithm.<a href="#section-4.3-5" class="pilcrow">¶</a></p>
+<p id="section-4.3-6">Step 4 — Produce the compact serialization:<a href="#section-4.3-6" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-4.3-7">
 <pre>
 epop_token = BASE64URL(header) + "." + BASE64URL(payload) + "." + BASE64URL(signature)
-</pre><a href="#section-4.2-7" class="pilcrow">¶</a>
+</pre><a href="#section-4.3-7" class="pilcrow">¶</a>
 </div>
-<p id="section-4.2-8">Step 5 — Transmit the EPOP token in the HTTP <code>Authorization</code> header using the <code>EPOP</code> authentication scheme (<span>[<a href="#RFC7235" class="cite xref">RFC7235</a>]</span>) for all endpoints — AS endpoints (token, introspection, revocation, PAR), resource server access, and the UserInfo endpoint:<a href="#section-4.2-8" class="pilcrow">¶</a></p>
-<div class="lang-http sourcecode" id="section-4.2-9">
+<p id="section-4.3-8">Step 5 — Transmit the EPOP token in the HTTP <code>Authorization</code> header using the <code>EPOP</code> authentication scheme (<span>[<a href="#RFC7235" class="cite xref">RFC7235</a>]</span>) for all endpoints — AS endpoints (token, introspection, revocation, PAR), resource server access, and the UserInfo endpoint:<a href="#section-4.3-8" class="pilcrow">¶</a></p>
+<div class="lang-http sourcecode" id="section-4.3-9">
 <pre>
 Authorization: EPOP &lt;compact-serialized-epop-token&gt;
-</pre><a href="#section-4.2-9" class="pilcrow">¶</a>
+</pre><a href="#section-4.3-9" class="pilcrow">¶</a>
 </div>
 </section>
 </div>
 <div id="inner-epop-key-rotation">
-<section id="section-4.3">
+<section id="section-4.4">
         <h3 id="name-inner-epop-token-for-key-ro">
-<a href="#section-4.3" class="section-number selfRef">4.3. </a><a href="#name-inner-epop-token-for-key-ro" class="section-name selfRef">Inner EPOP Token for Key Rotation</a>
+<a href="#section-4.4" class="section-number selfRef">4.4. </a><a href="#name-inner-epop-token-for-key-ro" class="section-name selfRef">Inner EPOP Token for Key Rotation</a>
         </h3>
-<p id="section-4.3-1">When rotating keys, the client constructs a two-layer structure. The inner envelope is signed with the OLD private key:<a href="#section-4.3-1" class="pilcrow">¶</a></p>
-<div class="lang-json sourcecode" id="section-4.3-2">
+<p id="section-4.4-1">When rotating keys, the client constructs a two-layer structure. The inner envelope is signed with the OLD private key:<a href="#section-4.4-1" class="pilcrow">¶</a></p>
+<div class="lang-json sourcecode" id="section-4.4-2">
 <pre>
 {
   "jti": "&lt;unique-id-inner&gt;",
@@ -1930,19 +2000,19 @@ Authorization: EPOP &lt;compact-serialized-epop-token&gt;
     "method": "POST"
   }
 }
-</pre><a href="#section-4.3-2" class="pilcrow">¶</a>
+</pre><a href="#section-4.4-2" class="pilcrow">¶</a>
 </div>
-<p id="section-4.3-3">The outer envelope is signed with the NEW private key:<a href="#section-4.3-3" class="pilcrow">¶</a></p>
-<div class="lang-json sourcecode" id="section-4.3-4">
+<p id="section-4.4-3">The outer envelope is signed with the NEW private key:<a href="#section-4.4-3" class="pilcrow">¶</a></p>
+<div class="lang-json sourcecode" id="section-4.4-4">
 <pre>
 {
   "jti": "&lt;unique-id-outer&gt;",
   "iat": "&lt;unix-time&gt;",
   "ntk": "&lt;compact-serialized-inner-epop-token&gt;"
 }
-</pre><a href="#section-4.3-4" class="pilcrow">¶</a>
+</pre><a href="#section-4.4-4" class="pilcrow">¶</a>
 </div>
-<p id="section-4.3-5">The outer token is submitted as the <code>epop</code> parameter in a <code>refresh_token</code> grant request.<a href="#section-4.3-5" class="pilcrow">¶</a></p>
+<p id="section-4.4-5">The outer token is submitted in the <code>Authorization: EPOP</code> header of a <code>refresh_token</code> grant request.<a href="#section-4.4-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -2005,21 +2075,18 @@ Authorization: EPOP &lt;compact-serialized-epop-token&gt;
             </ul>
 </li>
           <li id="section-5.1-2.7">
-            <p id="section-5.1-2.7.1"><strong>Decode and validate ntk</strong>:<a href="#section-5.1-2.7.1" class="pilcrow">¶</a></p>
-<ul class="normal">
-<li class="normal" id="section-5.1-2.7.2.1">
-                <p id="section-5.1-2.7.2.1.1">If authorization code (JWT): verify signature, expiry, and PKCE <code>code_verifier</code>.<a href="#section-5.1-2.7.2.1.1" class="pilcrow">¶</a></p>
-</li>
-              <li class="normal" id="section-5.1-2.7.2.2">
-                <p id="section-5.1-2.7.2.2.1">If authorization code (opaque): look up in server-side store; verify not expired, not used; verify PKCE <code>code_verifier</code>.<a href="#section-5.1-2.7.2.2.1" class="pilcrow">¶</a></p>
-</li>
-              <li class="normal" id="section-5.1-2.7.2.3">
-                <p id="section-5.1-2.7.2.3.1">If refresh token (single layer): verify validity and expiry.<a href="#section-5.1-2.7.2.3.1" class="pilcrow">¶</a></p>
-</li>
-              <li class="normal" id="section-5.1-2.7.2.4">
-                <p id="section-5.1-2.7.2.4.1">If inner EPOP token (key rotation): repeat steps 1–6 for the inner envelope; verify inner <code>jwk</code> is a valid asymmetric public key; confirm inner <code>rctx.res</code> matches token endpoint.<a href="#section-5.1-2.7.2.4.1" class="pilcrow">¶</a></p>
-</li>
-            </ul>
+            <p id="section-5.1-2.7.1"><strong>Validate credential</strong> (path depends on grant type):<a href="#section-5.1-2.7.1" class="pilcrow">¶</a></p>
+<p id="section-5.1-2.7.2">
+Authorization code exchange (<code>grant_type=authorization_code</code>):
+- Extract the <code>code</code> parameter from the form body; <code>ntk</code> is absent from the EPOP token.
+- If authorization code is a JWT: verify signature and expiry.
+- If authorization code is opaque: look up in server-side store; verify not expired and not previously used.
+- Verify PKCE <code>code_verifier</code> against the stored <code>code_challenge</code>.<a href="#section-5.1-2.7.2" class="pilcrow">¶</a></p>
+<p id="section-5.1-2.7.3">
+Refresh token grant (<code>grant_type=refresh_token</code>):
+- Decode <code>ntk</code> from the EPOP token.
+- If single layer: verify refresh token validity and expiry.
+- If inner EPOP token (key rotation): repeat steps 1–6 for the inner envelope; verify inner <code>jwk</code> is a valid asymmetric public key; confirm inner <code>rctx.res</code> matches the token endpoint; decode inner <code>ntk</code> as the refresh token.<a href="#section-5.1-2.7.3" class="pilcrow">¶</a></p>
 </li>
           <li id="section-5.1-2.8">
             <p id="section-5.1-2.8.1"><strong>Verify key binding</strong>:<a href="#section-5.1-2.8.1" class="pilcrow">¶</a></p>
@@ -2131,8 +2198,9 @@ Client                           AS                         RS
   |                              |                           |
   |-- 3. Token Request (POST) --&gt;|                           |
   |   Authorization: EPOP &lt;token:|                           |
-  |     code in ntk, cnf.jkt,    |                           |
-  |     code_verifier&gt;           |                           |
+  |     cnf.jkt, rctx&gt;           |                           |
+  |   + code, code_verifier      |                           |
+  |   (form parameters)          |                           |
   |                              |                           |
   |&lt;-- 4. Access Token ----------|                           |
   |   (cnf.jkt bound to key)     |                           |
@@ -2156,12 +2224,13 @@ Content-Type: application/x-www-form-urlencoded
 Authorization: EPOP &lt;compact-serialized-epop-token&gt;
 
 grant_type=authorization_code
+&amp;code=&lt;authorization-code&gt;
 &amp;client_id=s6BhdRkqt3
 &amp;redirect_uri=https%3A%2F%2Fclient.example.com%2Fcb
 &amp;code_verifier=bEaL42izcC-o-xBk0K2vuJ6U-y1p9r_wW2dFWIWgjz-
 </pre><a href="#section-6.1-4" class="pilcrow">¶</a>
 </div>
-<p id="section-6.1-5">EPOP token payload for this request (opaque authorization code Base64URL-encoded in <code>ntk</code>; <code>cnf.jkt</code> is the first-time key declaration since no PAR was used):<a href="#section-6.1-5" class="pilcrow">¶</a></p>
+<p id="section-6.1-5">EPOP token payload for this request (<code>cnf.jkt</code> declares the client's key binding; <code>ntk</code> is absent because the authorization code travels as the <code>code</code> form parameter per standard OAuth 2.0):<a href="#section-6.1-5" class="pilcrow">¶</a></p>
 <div class="lang-json sourcecode" id="section-6.1-6">
 <pre>
 {
@@ -2170,7 +2239,6 @@ grant_type=authorization_code
   "cnf": {
     "jkt": "NLp8qGUJ1ywXs4ayYFLHfh8TA0crUe4g78UyBfx5j0Y"
   },
-  "ntk": "QjM3Qjc3NDQtRjJDNS00RjY3LTkwMkQtMTVFNjIwOTMxNkE5",
   "rctx": {
     "res": "https://as.example.com/token",
     "method": "POST"
@@ -2324,7 +2392,7 @@ Authorization: EPOP &lt;compact-serialized-epop-token&gt;
 auth-field = "auth" "=" "EPOP" SP epop-token kvsep
 </pre><a href="#section-7.1-3" class="pilcrow">¶</a>
 </div>
-<p id="section-7.1-4">where <code>epop-token</code> is the compact-serialized EPOP JWT as defined in <a href="#token-structure" class="auto internal xref">Section 3</a> and <code>kvsep</code> is <code>%x01</code> per <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span>. All other fields in the GS2 initial client response (<code>host</code>, <code>port</code>, GS2 header, final <code>kvsep</code>) are unchanged from <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> Section 3.<a href="#section-7.1-4" class="pilcrow">¶</a></p>
+<p id="section-7.1-4">where <code>epop-token</code> is the compact-serialized EPOP JWT as defined in <a href="#token-profile" class="auto internal xref">Section 3</a> and <code>kvsep</code> is <code>%x01</code> per <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span>. All other fields in the GS2 initial client response (<code>host</code>, <code>port</code>, GS2 header, final <code>kvsep</code>) are unchanged from <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> Section 3.<a href="#section-7.1-4" class="pilcrow">¶</a></p>
 <p id="section-7.1-5">Example initial client response (using <code>%x01</code> represented as <code>&lt;SOH&gt;</code>):<a href="#section-7.1-5" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-7.1-6">
 <pre>
@@ -2624,8 +2692,34 @@ Authorization: EPOP &lt;compact-serialized-epop-token&gt;
         <h3 id="name-token-introspection">
 <a href="#section-10.2" class="section-number selfRef">10.2. </a><a href="#name-token-introspection" class="section-name selfRef">Token Introspection</a>
         </h3>
-<p id="section-10.2-1">The RS sends the EPOP token received from the client as the <code>token</code> parameter with <code>token_type_hint=epop_token</code>. The AS validates the EPOP envelope, extracts the credential from <code>ntk</code>, and returns a standard <span>[<a href="#RFC7662" class="cite xref">RFC7662</a>]</span> response extended with <code>cnf.jkt</code>:<a href="#section-10.2-1" class="pilcrow">¶</a></p>
-<div class="lang-http sourcecode" id="section-10.2-2">
+<p id="section-10.2-1">Token introspection (<span>[<a href="#RFC7662" class="cite xref">RFC7662</a>]</span>) for EPOP tokens supports two modes.<a href="#section-10.2-1" class="pilcrow">¶</a></p>
+<div id="introspection-inner">
+<section id="section-10.2.1">
+          <h4 id="name-mode-1-inner-token-introspe">
+<a href="#section-10.2.1" class="section-number selfRef">10.2.1. </a><a href="#name-mode-1-inner-token-introspe" class="section-name selfRef">Mode 1: Inner Token Introspection</a>
+          </h4>
+<p id="section-10.2.1-1">The caller extracts the access token from the <code>ntk</code> claim of the received EPOP token and submits it to the introspection endpoint with the appropriate <code>token_type_hint</code> (e.g., <code>access_token</code>):<a href="#section-10.2.1-1" class="pilcrow">¶</a></p>
+<div class="lang-http sourcecode" id="section-10.2.1-2">
+<pre>
+POST /introspect HTTP/1.1
+Host: as.example.com
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic &lt;rs-credentials&gt;
+
+token=&lt;access-token-extracted-from-ntk&gt;
+&amp;token_type_hint=access_token
+</pre><a href="#section-10.2.1-2" class="pilcrow">¶</a>
+</div>
+<p id="section-10.2.1-3">The introspection response includes <code>cnf.jkt</code>. The caller <span class="bcp14">MUST</span> verify that <code>sha256(EPOP token signing key)</code> equals the <code>cnf.jkt</code> returned in the response. This check confirms that the EPOP envelope was signed by the key legitimately bound to the nested token.<a href="#section-10.2.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="introspection-epop">
+<section id="section-10.2.2">
+          <h4 id="name-mode-2-full-epop-token-intr">
+<a href="#section-10.2.2" class="section-number selfRef">10.2.2. </a><a href="#name-mode-2-full-epop-token-intr" class="section-name selfRef">Mode 2: Full EPOP Token Introspection</a>
+          </h4>
+<p id="section-10.2.2-1">The caller sends the entire EPOP token to the introspection endpoint with <code>token_type_hint=epop_token</code>:<a href="#section-10.2.2-1" class="pilcrow">¶</a></p>
+<div class="lang-http sourcecode" id="section-10.2.2-2">
 <pre>
 POST /introspect HTTP/1.1
 Host: as.example.com
@@ -2634,11 +2728,11 @@ Authorization: Basic &lt;rs-credentials&gt;
 
 token=&lt;epop-token-received-from-client&gt;
 &amp;token_type_hint=epop_token
-</pre><a href="#section-10.2-2" class="pilcrow">¶</a>
+</pre><a href="#section-10.2.2-2" class="pilcrow">¶</a>
 </div>
-<p id="section-10.2-3">For opaque tokens, <code>cnf.jkt</code> in the response is the server-side registered client EPOP public key; for JWT tokens it is extracted from the token's own <code>cnf.jkt</code> claim.<a href="#section-10.2-3" class="pilcrow">¶</a></p>
-<p id="section-10.2-4">Access token introspection response:<a href="#section-10.2-4" class="pilcrow">¶</a></p>
-<div class="lang-json sourcecode" id="section-10.2-5">
+<p id="section-10.2.2-3">The AS validates the EPOP envelope signature, extracts the credential from <code>ntk</code>, and validates it. The AS <span class="bcp14">MUST</span> verify that <code>sha256(EPOP token signing key)</code> equals the <code>cnf.jkt</code> in the nested token before returning a response. This check prevents a caller from presenting a valid EPOP envelope wrapping a token not bound to that key.<a href="#section-10.2.2-3" class="pilcrow">¶</a></p>
+<p id="section-10.2.2-4">In both modes the introspection response includes <code>cnf.jkt</code>. For opaque tokens, <code>cnf.jkt</code> is the server-side registered client EPOP public key; for JWT tokens it is extracted from the token's own <code>cnf.jkt</code> claim.<a href="#section-10.2.2-4" class="pilcrow">¶</a></p>
+<div class="lang-json sourcecode" id="section-10.2.2-5">
 <pre>
 {
   "active": true,
@@ -2653,7 +2747,9 @@ token=&lt;epop-token-received-from-client&gt;
     "jkt": "NLp8qGUJ1ywXs4ayYFLHfh8TA0crUe4g78UyBfx5j0Y"
   }
 }
-</pre><a href="#section-10.2-5" class="pilcrow">¶</a>
+</pre><a href="#section-10.2.2-5" class="pilcrow">¶</a>
+</div>
+</section>
 </div>
 </section>
 </div>
@@ -2662,7 +2758,7 @@ token=&lt;epop-token-received-from-client&gt;
         <h3 id="name-token-exchange">
 <a href="#section-10.3" class="section-number selfRef">10.3. </a><a href="#name-token-exchange" class="section-name selfRef">Token Exchange</a>
         </h3>
-<p id="section-10.3-1">Token exchange (<span>[<a href="#RFC8693" class="cite xref">RFC8693</a>]</span>) is performed on nested tokens: the token to be exchanged travels inside the <code>ntk</code> claim of an EPOP envelope, and the form parameters defined in <span>[<a href="#RFC8693" class="cite xref">RFC8693</a>]</span> (e.g., <code>grant_type</code>, <code>subject_token</code>, <code>subject_token_type</code>, <code>audience</code>) are unchanged. A client of the token exchange <span class="bcp14">MAY</span> use an EPOP token in the <code>Authorization</code> header in place of a bearer token when authenticating to the token endpoint.<a href="#section-10.3-1" class="pilcrow">¶</a></p>
+<p id="section-10.3-1">Token exchange is not covered by this specification.<a href="#section-10.3-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="token-revocation">
@@ -2670,31 +2766,7 @@ token=&lt;epop-token-received-from-client&gt;
         <h3 id="name-token-revocation">
 <a href="#section-10.4" class="section-number selfRef">10.4. </a><a href="#name-token-revocation" class="section-name selfRef">Token Revocation</a>
         </h3>
-<p id="section-10.4-1">The token to be revoked travels inside the EPOP envelope (<span>[<a href="#RFC7009" class="cite xref">RFC7009</a>]</span>):<a href="#section-10.4-1" class="pilcrow">¶</a></p>
-<div class="lang-json sourcecode" id="section-10.4-2">
-<pre>
-{
-  "jti": "&lt;unique-id&gt;",
-  "iat": "&lt;unix-time&gt;",
-  "ntk": "&lt;access-or-refresh-token&gt;",
-  "rctx": {
-    "res": "https://as.example.com/revoke",
-    "method": "POST"
-  }
-}
-</pre><a href="#section-10.4-2" class="pilcrow">¶</a>
-</div>
-<div class="lang-http sourcecode" id="section-10.4-3">
-<pre>
-POST /revoke HTTP/1.1
-Host: as.example.com
-Content-Type: application/x-www-form-urlencoded
-
-client_id=s6BhdRkqt3
-&amp;epop=&lt;compact-serialized-epop-token&gt;
-</pre><a href="#section-10.4-3" class="pilcrow">¶</a>
-</div>
-<p id="section-10.4-4">The AS <span class="bcp14">MUST</span> confirm <code>sha256(outer jwk) == cnf.jkt</code> in the token before revoking. This prevents third-party revocation of another client's tokens.<a href="#section-10.4-4" class="pilcrow">¶</a></p>
+<p id="section-10.4-1">Token revocation is not covered by this specification.<a href="#section-10.4-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="par">
@@ -3105,18 +3177,93 @@ reject
 </div>
 </section>
 </div>
-<div id="security">
+<div id="related-specs">
 <section id="section-13">
+      <h2 id="name-relationship-to-other-speci">
+<a href="#section-13" class="section-number selfRef">13. </a><a href="#name-relationship-to-other-speci" class="section-name selfRef">Relationship to Other Specifications</a>
+      </h2>
+<table class="center" id="table-12">
+        <caption><a href="#table-12" class="selfRef">Table 12</a></caption>
+<thead>
+          <tr>
+            <th class="text-left" rowspan="1" colspan="1">RFC</th>
+            <th class="text-left" rowspan="1" colspan="1">Title</th>
+            <th class="text-left" rowspan="1" colspan="1">Relationship</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">
+              <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span>
+</td>
+            <td class="text-left" rowspan="1" colspan="1">A Set of Simple Authentication and Security Layer (SASL) Mechanisms for OAuth</td>
+            <td class="text-left" rowspan="1" colspan="1">EPOP extends RFC 7628 by introducing <code>EPOP</code> as a new OAuth authentication type for the SASL <code>auth</code> field and defining <code>OAUTHEPOP</code> as a new SASL mechanism. All behaviors defined in RFC 7628 remain in effect; this document adds only the <code>auth=EPOP</code> field value and the key binding check that <code>OAUTHBEARER</code> servers apply when they encounter it.</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">
+              <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>
+</td>
+            <td class="text-left" rowspan="1" colspan="1">OAuth 2.0 Demonstrating Proof of Possession (DPoP)</td>
+            <td class="text-left" rowspan="1" colspan="1">EPOP generalizes the DPoP proof model: replaces <code>htm</code>/<code>htu</code> with <code>rctx</code> for protocol agnosticism; replaces the <code>ath</code> hash with <code>ntk</code> embedding so credential and proof travel as one object; extends coverage to authorization codes and refresh tokens; adds atomic key rotation and the offline <code>cnonce</code>.</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">
+              <span>[<a href="#RFC7636" class="cite xref">RFC7636</a>]</span>
+</td>
+            <td class="text-left" rowspan="1" colspan="1">Proof Key for Code Exchange (PKCE)</td>
+            <td class="text-left" rowspan="1" colspan="1">EPOP elevates PKCE from <span class="bcp14">RECOMMENDED</span> to <span class="bcp14">REQUIRED</span> in all authorization code flows.</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">
+              <span>[<a href="#RFC8414" class="cite xref">RFC8414</a>]</span>
+</td>
+            <td class="text-left" rowspan="1" colspan="1">OAuth 2.0 Authorization Server Metadata</td>
+            <td class="text-left" rowspan="1" colspan="1">EPOP adds new discovery fields to the well-known document: <code>epop_supported</code>, <code>epop_ntk_types_supported</code>, <code>epop_key_rotation_supported</code>, and the <code>epop_cnonce_*</code> family.</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">
+              <span>[<a href="#RFC7638" class="cite xref">RFC7638</a>]</span>
+</td>
+            <td class="text-left" rowspan="1" colspan="1">JSON Web Key (JWK) Thumbprint</td>
+            <td class="text-left" rowspan="1" colspan="1">EPOP uses the SHA-256 JWK thumbprint (<code>cnf.jkt</code>) as its primary key binding primitive — embedded in every issued token and checked by the RS as its main defense against token substitution.</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">
+              <span>[<a href="#RFC7662" class="cite xref">RFC7662</a>]</span>
+</td>
+            <td class="text-left" rowspan="1" colspan="1">OAuth 2.0 Token Introspection</td>
+            <td class="text-left" rowspan="1" colspan="1">EPOP extends introspection responses to include <code>cnf.jkt</code>. For opaque tokens the AS returns the server-side registered client EPOP public key; for JWT tokens it is extracted from the token's own claim.</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">
+              <span>[<a href="#RFC9126" class="cite xref">RFC9126</a>]</span>
+</td>
+            <td class="text-left" rowspan="1" colspan="1">OAuth 2.0 Pushed Authorization Requests (PAR)</td>
+            <td class="text-left" rowspan="1" colspan="1">EPOP extends PAR to let the client declare <code>cnf.jkt</code> at the earliest point in the flow, pre-binding the authorization code before the browser redirect.</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">
+              <span>[<a href="#RFC5869" class="cite xref">RFC5869</a>]</span>
+</td>
+            <td class="text-left" rowspan="1" colspan="1">HMAC-based Key Derivation Function (HKDF)</td>
+            <td class="text-left" rowspan="1" colspan="1">EPOP uses HKDF-SHA256 to derive a per-client key from the optional server-controlled <code>epop_cnonce_seed</code> and the client's public key, enabling stateless offline cnonce computation.</td>
+          </tr>
+        </tbody>
+      </table>
+</section>
+</div>
+<div id="security">
+<section id="section-14">
       <h2 id="name-security-considerations">
-<a href="#section-13" class="section-number selfRef">13. </a><a href="#name-security-considerations" class="section-name selfRef">Security Considerations</a>
+<a href="#section-14" class="section-number selfRef">14. </a><a href="#name-security-considerations" class="section-name selfRef">Security Considerations</a>
       </h2>
 <div id="security-summary">
-<section id="section-13.1">
+<section id="section-14.1">
         <h3 id="name-summary">
-<a href="#section-13.1" class="section-number selfRef">13.1. </a><a href="#name-summary" class="section-name selfRef">Summary</a>
+<a href="#section-14.1" class="section-number selfRef">14.1. </a><a href="#name-summary" class="section-name selfRef">Summary</a>
         </h3>
-<table class="center" id="table-12">
-          <caption><a href="#table-12" class="selfRef">Table 12</a></caption>
+<table class="center" id="table-13">
+          <caption><a href="#table-13" class="selfRef">Table 13</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Consideration</th>
@@ -3145,7 +3292,7 @@ reject
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">Private key storage</td>
-              <td class="text-left" rowspan="1" colspan="1">Platform-appropriate secure storage. See <a href="#private-key-protection" class="auto internal xref">Section 13.2</a>.</td>
+              <td class="text-left" rowspan="1" colspan="1">Platform-appropriate secure storage. See <a href="#private-key-protection" class="auto internal xref">Section 14.2</a>.</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
@@ -3156,7 +3303,7 @@ reject
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
                 <code>ntk</code> confidentiality</td>
-              <td class="text-left" rowspan="1" colspan="1">TLS <span class="bcp14">REQUIRED</span>; JWE optional for extra confidentiality. <code>ntk</code> is Base64URL-encoded, not encrypted. Refresh tokens and authorization codes are sensitive.</td>
+              <td class="text-left" rowspan="1" colspan="1">TLS <span class="bcp14">REQUIRED</span>; JWE optional for extra confidentiality. <code>ntk</code> is Base64URL-encoded, not encrypted. Refresh tokens in <code>ntk</code> are sensitive. Authorization codes are not embedded in <code>ntk</code> and travel as the standard <code>code</code> form parameter.</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">Key rotation atomicity</td>
@@ -3181,241 +3328,280 @@ reject
 </section>
 </div>
 <div id="private-key-protection">
-<section id="section-13.2">
+<section id="section-14.2">
         <h3 id="name-private-key-protection">
-<a href="#section-13.2" class="section-number selfRef">13.2. </a><a href="#name-private-key-protection" class="section-name selfRef">Private Key Protection</a>
+<a href="#section-14.2" class="section-number selfRef">14.2. </a><a href="#name-private-key-protection" class="section-name selfRef">Private Key Protection</a>
         </h3>
-<p id="section-13.2-1">The security of EPOP depends entirely on the client's private key remaining secret.<a href="#section-13.2-1" class="pilcrow">¶</a></p>
-<p id="section-13.2-2"><strong>Native and mobile applications:</strong> Clients <span class="bcp14">MUST</span> use platform secure storage facilities (e.g., Android Keystore, iOS Secure Enclave). Private key operations <span class="bcp14">SHOULD</span> be performed inside the secure element where the platform supports it, so that key material never enters application memory.<a href="#section-13.2-2" class="pilcrow">¶</a></p>
-<p id="section-13.2-3"><strong>Browser environments:</strong> Private keys <span class="bcp14">MUST</span> be generated as non-extractable <code>CryptoKey</code> objects via the Web Crypto API (<code>extractable: false</code>). This prevents JavaScript running in the same origin — including code injected via XSS — from exporting the raw key bytes. Clients <span class="bcp14">MUST NOT</span> store private keys in <code>localStorage</code>, <code>sessionStorage</code>, <code>IndexedDB</code>, or any JavaScript-readable store.<a href="#section-13.2-3" class="pilcrow">¶</a></p>
-<p id="section-13.2-4"><strong>Symmetric algorithm prohibition:</strong> EPOP tokens <span class="bcp14">MUST</span> use asymmetric digital signature algorithms. Symmetric algorithms (e.g., <code>HS256</code>) are forbidden because they require the verifier to hold the same secret as the signer, making independent third-party verification impossible and creating shared-secret distribution risk.<a href="#section-13.2-4" class="pilcrow">¶</a></p>
-<p id="section-13.2-5"><strong>General:</strong> Private key material <span class="bcp14">MUST</span> never be logged, serialized into application state, or transmitted over any channel. The <code>jwk</code> embedded in the EPOP header carries the public key only. Implementations <span class="bcp14">MUST</span> verify that no private key fields (<code>d</code>, <code>p</code>, <code>q</code>, <code>dp</code>, <code>dq</code>, <code>qi</code>) are present in the <code>jwk</code> header parameter before accepting or forwarding an EPOP token.<a href="#section-13.2-5" class="pilcrow">¶</a></p>
+<p id="section-14.2-1">The security of EPOP depends entirely on the client's private key remaining secret.<a href="#section-14.2-1" class="pilcrow">¶</a></p>
+<p id="section-14.2-2"><strong>Native and mobile applications:</strong> Clients <span class="bcp14">MUST</span> use platform secure storage facilities (e.g., Android Keystore, iOS Secure Enclave). Private key operations <span class="bcp14">SHOULD</span> be performed inside the secure element where the platform supports it, so that key material never enters application memory.<a href="#section-14.2-2" class="pilcrow">¶</a></p>
+<p id="section-14.2-3"><strong>Browser environments:</strong> Private keys <span class="bcp14">MUST</span> be generated as non-extractable <code>CryptoKey</code> objects via the Web Crypto API (<code>extractable: false</code>). This prevents JavaScript running in the same origin — including code injected via XSS — from exporting the raw key bytes. Clients <span class="bcp14">MUST NOT</span> store private keys in <code>localStorage</code>, <code>sessionStorage</code>, <code>IndexedDB</code>, or any JavaScript-readable store.<a href="#section-14.2-3" class="pilcrow">¶</a></p>
+<p id="section-14.2-4"><strong>Symmetric algorithm prohibition:</strong> EPOP tokens <span class="bcp14">MUST</span> use asymmetric digital signature algorithms. Symmetric algorithms (e.g., <code>HS256</code>) are forbidden because they require the verifier to hold the same secret as the signer, making independent third-party verification impossible and creating shared-secret distribution risk.<a href="#section-14.2-4" class="pilcrow">¶</a></p>
+<p id="section-14.2-5"><strong>General:</strong> Private key material <span class="bcp14">MUST</span> never be logged, serialized into application state, or transmitted over any channel. The <code>jwk</code> embedded in the EPOP header carries the public key only. Implementations <span class="bcp14">MUST</span> verify that no private key fields (<code>d</code>, <code>p</code>, <code>q</code>, <code>dp</code>, <code>dq</code>, <code>qi</code>) are present in the <code>jwk</code> header parameter before accepting or forwarding an EPOP token.<a href="#section-14.2-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="token-substitution">
-<section id="section-13.3">
+<section id="section-14.3">
         <h3 id="name-token-substitution-attacks">
-<a href="#section-13.3" class="section-number selfRef">13.3. </a><a href="#name-token-substitution-attacks" class="section-name selfRef">Token Substitution Attacks</a>
+<a href="#section-14.3" class="section-number selfRef">14.3. </a><a href="#name-token-substitution-attacks" class="section-name selfRef">Token Substitution Attacks</a>
         </h3>
-<p id="section-13.3-1">The key binding check in <a href="#rs-validation" class="auto internal xref">Section 5.2</a> Step 6 is the primary defense against token substitution. An attacker who captures an access token and wraps it in an EPOP envelope signed with their own key will produce a <code>sha256(outer jwk)</code> value that does not match the <code>cnf.jkt</code> embedded in the token by the AS. The RS <span class="bcp14">MUST</span> reject this mismatch.<a href="#section-13.3-1" class="pilcrow">¶</a></p>
+<p id="section-14.3-1">The key binding check in <a href="#rs-validation" class="auto internal xref">Section 5.2</a> Step 6 is the primary defense against token substitution. An attacker who captures an access token and wraps it in an EPOP envelope signed with their own key will produce a <code>sha256(outer jwk)</code> value that does not match the <code>cnf.jkt</code> embedded in the token by the AS. The RS <span class="bcp14">MUST</span> reject this mismatch.<a href="#section-14.3-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="cross-protocol-replay">
-<section id="section-13.4">
+<section id="section-14.4">
         <h3 id="name-cross-protocol-replay">
-<a href="#section-13.4" class="section-number selfRef">13.4. </a><a href="#name-cross-protocol-replay" class="section-name selfRef">Cross-Protocol Replay</a>
+<a href="#section-14.4" class="section-number selfRef">14.4. </a><a href="#name-cross-protocol-replay" class="section-name selfRef">Cross-Protocol Replay</a>
         </h3>
-<p id="section-13.4-1">Without <code>rctx</code> validation, an EPOP token captured from one protocol or endpoint could be replayed at another within the token's validity window. Servers <span class="bcp14">MUST</span> validate <code>rctx.res</code> and <code>rctx.method</code> when these claims are present. Clients <span class="bcp14">SHOULD</span> always include <code>rctx</code> to maximize replay resistance.<a href="#section-13.4-1" class="pilcrow">¶</a></p>
+<p id="section-14.4-1">Without <code>rctx</code> validation, an EPOP token captured from one protocol or endpoint could be replayed at another within the token's validity window. Servers <span class="bcp14">MUST</span> validate <code>rctx.res</code> and <code>rctx.method</code> when these claims are present. Clients <span class="bcp14">SHOULD</span> always include <code>rctx</code> to maximize replay resistance.<a href="#section-14.4-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="key-rotation-security">
-<section id="section-13.5">
+<section id="section-14.5">
         <h3 id="name-key-rotation-security">
-<a href="#section-13.5" class="section-number selfRef">13.5. </a><a href="#name-key-rotation-security" class="section-name selfRef">Key Rotation Security</a>
+<a href="#section-14.5" class="section-number selfRef">14.5. </a><a href="#name-key-rotation-security" class="section-name selfRef">Key Rotation Security</a>
         </h3>
-<p id="section-13.5-1">The AS <span class="bcp14">MUST</span> validate both envelopes completely before issuing new tokens or updating key bindings. Partial validation would allow an attacker who holds a captured refresh token to inject a new key by constructing a valid outer envelope while providing an invalid inner envelope.<a href="#section-13.5-1" class="pilcrow">¶</a></p>
+<p id="section-14.5-1">The AS <span class="bcp14">MUST</span> validate both envelopes completely before issuing new tokens or updating key bindings. Partial validation would allow an attacker who holds a captured refresh token to inject a new key by constructing a valid outer envelope while providing an invalid inner envelope.<a href="#section-14.5-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="privacy">
+<section id="section-15">
+      <h2 id="name-privacy-considerations">
+<a href="#section-15" class="section-number selfRef">15. </a><a href="#name-privacy-considerations" class="section-name selfRef">Privacy Considerations</a>
+      </h2>
+<div id="credential-visibility-in-logs">
+<section id="section-15.1">
+        <h3 id="name-credential-visibility-in-lo">
+<a href="#section-15.1" class="section-number selfRef">15.1. </a><a href="#name-credential-visibility-in-lo" class="section-name selfRef">Credential Visibility in Logs</a>
+        </h3>
+<p id="section-15.1-1">The <code>ntk</code> claim embeds the full OAuth 2.0 credential inside the EPOP envelope. Unlike bearer token flows where only the token value is sensitive, an EPOP token carries sensitive material throughout its compact serialization. Servers and intermediaries <span class="bcp14">MUST NOT</span> log EPOP token values in plaintext. When logging is required for audit purposes, the <code>jti</code> claim <span class="bcp14">SHOULD</span> be used as the correlation identifier in place of the token value.<a href="#section-15.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="key-identifier-as-tracking-vector">
+<section id="section-15.2">
+        <h3 id="name-key-identifier-as-tracking-">
+<a href="#section-15.2" class="section-number selfRef">15.2. </a><a href="#name-key-identifier-as-tracking-" class="section-name selfRef">Key Identifier as Tracking Vector</a>
+        </h3>
+<p id="section-15.2-1">The <code>cnf.jkt</code> claim is a stable, long-lived public key thumbprint. If the same key pair is used across multiple authorization server or resource server deployments, the thumbprint functions as a cross-context tracking identifier. Clients <span class="bcp14">SHOULD</span> use distinct key pairs per authorization server to limit cross-context correlation. Key rotation (<a href="#key-rotation-refresh" class="auto internal xref">Section 8.2</a>) provides a mechanism for periodic key refresh independent of active sessions.<a href="#section-15.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="resource-uri-disclosure">
+<section id="section-15.3">
+        <h3 id="name-resource-uri-disclosure">
+<a href="#section-15.3" class="section-number selfRef">15.3. </a><a href="#name-resource-uri-disclosure" class="section-name selfRef">Resource URI Disclosure</a>
+        </h3>
+<p id="section-15.3-1">The <code>rctx.res</code> field encodes the target resource URI or URN and is part of the signed EPOP envelope, visible to any party that receives or logs the token. Clients <span class="bcp14">MUST</span> use TLS for all EPOP token transmissions to limit exposure to on-path observers. Resource identifiers that encode sensitive information (e.g., user identifiers embedded in path parameters) <span class="bcp14">SHOULD</span> be avoided in <code>rctx.res</code>.<a href="#section-15.3-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="minimal-disclosure">
+<section id="section-15.4">
+        <h3 id="name-minimal-disclosure">
+<a href="#section-15.4" class="section-number selfRef">15.4. </a><a href="#name-minimal-disclosure" class="section-name selfRef">Minimal Disclosure</a>
+        </h3>
+<p id="section-15.4-1">This profile does not require the EPOP envelope to carry user identity claims. User identity information belongs in the nested access token (<code>ntk</code>), not in the outer EPOP envelope. Implementations <span class="bcp14">MUST NOT</span> add user identity claims to the EPOP token header or payload unless required by a specific profile extension.<a href="#section-15.4-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
 </div>
 <div id="iana">
-<section id="section-14">
+<section id="section-16">
       <h2 id="name-iana-considerations">
-<a href="#section-14" class="section-number selfRef">14. </a><a href="#name-iana-considerations" class="section-name selfRef">IANA Considerations</a>
+<a href="#section-16" class="section-number selfRef">16. </a><a href="#name-iana-considerations" class="section-name selfRef">IANA Considerations</a>
       </h2>
 <div id="iana-http-scheme">
-<section id="section-14.1">
+<section id="section-16.1">
         <h3 id="name-http-authentication-scheme-">
-<a href="#section-14.1" class="section-number selfRef">14.1. </a><a href="#name-http-authentication-scheme-" class="section-name selfRef">HTTP Authentication Scheme Registration</a>
+<a href="#section-16.1" class="section-number selfRef">16.1. </a><a href="#name-http-authentication-scheme-" class="section-name selfRef">HTTP Authentication Scheme Registration</a>
         </h3>
-<p id="section-14.1-1">This specification requests registration of the following entry in the "Hypertext Transfer Protocol (HTTP) Authentication Scheme Registry" (<span>[<a href="#RFC7235" class="cite xref">RFC7235</a>]</span>):<a href="#section-14.1-1" class="pilcrow">¶</a></p>
-<span class="break"></span><dl class="dlParallel" id="section-14.1-2">
-          <dt id="section-14.1-2.1">Authentication Scheme Name:</dt>
-          <dd style="margin-left: 1.5em" id="section-14.1-2.2">
-            <p id="section-14.1-2.2.1"><code>EPOP</code><a href="#section-14.1-2.2.1" class="pilcrow">¶</a></p>
+<p id="section-16.1-1">This specification requests registration of the following entry in the "Hypertext Transfer Protocol (HTTP) Authentication Scheme Registry" (<span>[<a href="#RFC7235" class="cite xref">RFC7235</a>]</span>):<a href="#section-16.1-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-16.1-2">
+          <dt id="section-16.1-2.1">Authentication Scheme Name:</dt>
+          <dd style="margin-left: 1.5em" id="section-16.1-2.2">
+            <p id="section-16.1-2.2.1"><code>EPOP</code><a href="#section-16.1-2.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.1-2.3">Pointer to specification text:</dt>
-          <dd style="margin-left: 1.5em" id="section-14.1-2.4">
-            <p id="section-14.1-2.4.1"><a href="#resource-access" class="auto internal xref">Section 6.3</a> and <a href="#token-structure" class="auto internal xref">Section 3</a> of this document.<a href="#section-14.1-2.4.1" class="pilcrow">¶</a></p>
+<dt id="section-16.1-2.3">Pointer to specification text:</dt>
+          <dd style="margin-left: 1.5em" id="section-16.1-2.4">
+            <p id="section-16.1-2.4.1"><a href="#resource-access" class="auto internal xref">Section 6.3</a> and <a href="#token-profile" class="auto internal xref">Section 3</a> of this document.<a href="#section-16.1-2.4.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
 </section>
 </div>
 <div id="iana-jwt-claims">
-<section id="section-14.2">
+<section id="section-16.2">
         <h3 id="name-jwt-claims-registration">
-<a href="#section-14.2" class="section-number selfRef">14.2. </a><a href="#name-jwt-claims-registration" class="section-name selfRef">JWT Claims Registration</a>
+<a href="#section-16.2" class="section-number selfRef">16.2. </a><a href="#name-jwt-claims-registration" class="section-name selfRef">JWT Claims Registration</a>
         </h3>
-<p id="section-14.2-1">This specification requests registration of the following JWT claims in the "JSON Web Token Claims" registry established by <span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span>:<a href="#section-14.2-1" class="pilcrow">¶</a></p>
-<span class="break"></span><dl class="dlParallel" id="section-14.2-2">
-          <dt id="section-14.2-2.1">Claim Name: <code>ntk</code>
+<p id="section-16.2-1">This specification requests registration of the following JWT claims in the "JSON Web Token Claims" registry established by <span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span>:<a href="#section-16.2-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-16.2-2">
+          <dt id="section-16.2-2.1">Claim Name: <code>ntk</code>
 </dt>
-          <dd style="margin-left: 1.5em" id="section-14.2-2.2">
-            <p id="section-14.2-2.2.1">Claim Description: Nested Token — the OAuth 2.0 credential embedded inside the EPOP envelope.<a href="#section-14.2-2.2.1" class="pilcrow">¶</a></p>
+          <dd style="margin-left: 1.5em" id="section-16.2-2.2">
+            <p id="section-16.2-2.2.1">Claim Description: Nested Token — the OAuth 2.0 credential embedded inside the EPOP envelope.<a href="#section-16.2-2.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.2-2.3"></dt>
-          <dd style="margin-left: 1.5em" id="section-14.2-2.4">
-            <p id="section-14.2-2.4.1">Change Controller: IETF<a href="#section-14.2-2.4.1" class="pilcrow">¶</a></p>
+<dt id="section-16.2-2.3"></dt>
+          <dd style="margin-left: 1.5em" id="section-16.2-2.4">
+            <p id="section-16.2-2.4.1">Change Controller: IETF<a href="#section-16.2-2.4.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.2-2.5"></dt>
-          <dd style="margin-left: 1.5em" id="section-14.2-2.6">
-            <p id="section-14.2-2.6.1">Specification Document(s): <a href="#ntk-values" class="auto internal xref">Section 3.3</a> of this document<a href="#section-14.2-2.6.1" class="pilcrow">¶</a></p>
+<dt id="section-16.2-2.5"></dt>
+          <dd style="margin-left: 1.5em" id="section-16.2-2.6">
+            <p id="section-16.2-2.6.1">Specification Document(s): <a href="#ntk-values" class="auto internal xref">Section 3.3</a> of this document<a href="#section-16.2-2.6.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.2-2.7">Claim Name: <code>rctx</code>
+<dt id="section-16.2-2.7">Claim Name: <code>rctx</code>
 </dt>
-          <dd style="margin-left: 1.5em" id="section-14.2-2.8">
-            <p id="section-14.2-2.8.1">Claim Description: Request Context — a JSON object identifying the target resource and protocol action.<a href="#section-14.2-2.8.1" class="pilcrow">¶</a></p>
+          <dd style="margin-left: 1.5em" id="section-16.2-2.8">
+            <p id="section-16.2-2.8.1">Claim Description: Request Context — a JSON object identifying the target resource and protocol action.<a href="#section-16.2-2.8.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.2-2.9"></dt>
-          <dd style="margin-left: 1.5em" id="section-14.2-2.10">
-            <p id="section-14.2-2.10.1">Change Controller: IETF<a href="#section-14.2-2.10.1" class="pilcrow">¶</a></p>
+<dt id="section-16.2-2.9"></dt>
+          <dd style="margin-left: 1.5em" id="section-16.2-2.10">
+            <p id="section-16.2-2.10.1">Change Controller: IETF<a href="#section-16.2-2.10.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.2-2.11"></dt>
-          <dd style="margin-left: 1.5em" id="section-14.2-2.12">
-            <p id="section-14.2-2.12.1">Specification Document(s): <a href="#token-payload" class="auto internal xref">Section 3.2</a> of this document<a href="#section-14.2-2.12.1" class="pilcrow">¶</a></p>
+<dt id="section-16.2-2.11"></dt>
+          <dd style="margin-left: 1.5em" id="section-16.2-2.12">
+            <p id="section-16.2-2.12.1">Specification Document(s): <a href="#token-payload" class="auto internal xref">Section 3.2</a> of this document<a href="#section-16.2-2.12.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.2-2.13">Claim Name: <code>cnonce</code>
+<dt id="section-16.2-2.13">Claim Name: <code>cnonce</code>
 </dt>
-          <dd style="margin-left: 1.5em" id="section-14.2-2.14">
-            <p id="section-14.2-2.14.1">Claim Description: Client Nonce — offline-derived HMAC value for replay resistance without server-issued nonce state.<a href="#section-14.2-2.14.1" class="pilcrow">¶</a></p>
+          <dd style="margin-left: 1.5em" id="section-16.2-2.14">
+            <p id="section-16.2-2.14.1">Claim Description: Client Nonce — offline-derived HMAC value for replay resistance without server-issued nonce state.<a href="#section-16.2-2.14.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.2-2.15"></dt>
-          <dd style="margin-left: 1.5em" id="section-14.2-2.16">
-            <p id="section-14.2-2.16.1">Change Controller: IETF<a href="#section-14.2-2.16.1" class="pilcrow">¶</a></p>
+<dt id="section-16.2-2.15"></dt>
+          <dd style="margin-left: 1.5em" id="section-16.2-2.16">
+            <p id="section-16.2-2.16.1">Change Controller: IETF<a href="#section-16.2-2.16.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.2-2.17"></dt>
-          <dd style="margin-left: 1.5em" id="section-14.2-2.18">
-            <p id="section-14.2-2.18.1">Specification Document(s): <a href="#cnonce" class="auto internal xref">Section 12</a> of this document<a href="#section-14.2-2.18.1" class="pilcrow">¶</a></p>
+<dt id="section-16.2-2.17"></dt>
+          <dd style="margin-left: 1.5em" id="section-16.2-2.18">
+            <p id="section-16.2-2.18.1">Specification Document(s): <a href="#cnonce" class="auto internal xref">Section 12</a> of this document<a href="#section-16.2-2.18.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
 </section>
 </div>
 <div id="iana-jwt-type">
-<section id="section-14.3">
+<section id="section-16.3">
         <h3 id="name-jwt-type-registration">
-<a href="#section-14.3" class="section-number selfRef">14.3. </a><a href="#name-jwt-type-registration" class="section-name selfRef">JWT Type Registration</a>
+<a href="#section-16.3" class="section-number selfRef">16.3. </a><a href="#name-jwt-type-registration" class="section-name selfRef">JWT Type Registration</a>
         </h3>
-<p id="section-14.3-1">This specification requests registration of the <code>epop+jwt</code> media type suffix:<a href="#section-14.3-1" class="pilcrow">¶</a></p>
-<span class="break"></span><dl class="dlParallel" id="section-14.3-2">
-          <dt id="section-14.3-2.1">Type Name: <code>epop+jwt</code>
+<p id="section-16.3-1">This specification requests registration of the <code>epop+jwt</code> media type suffix:<a href="#section-16.3-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-16.3-2">
+          <dt id="section-16.3-2.1">Type Name: <code>epop+jwt</code>
 </dt>
-          <dd style="margin-left: 1.5em" id="section-14.3-2.2">
-            <p id="section-14.3-2.2.1">Description: Enveloped Proof of Possession JWT.<a href="#section-14.3-2.2.1" class="pilcrow">¶</a></p>
+          <dd style="margin-left: 1.5em" id="section-16.3-2.2">
+            <p id="section-16.3-2.2.1">Description: Enveloped Proof of Possession JWT.<a href="#section-16.3-2.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.3-2.3"></dt>
-          <dd style="margin-left: 1.5em" id="section-14.3-2.4">
-            <p id="section-14.3-2.4.1">Change Controller: IETF<a href="#section-14.3-2.4.1" class="pilcrow">¶</a></p>
+<dt id="section-16.3-2.3"></dt>
+          <dd style="margin-left: 1.5em" id="section-16.3-2.4">
+            <p id="section-16.3-2.4.1">Change Controller: IETF<a href="#section-16.3-2.4.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.3-2.5"></dt>
-          <dd style="margin-left: 1.5em" id="section-14.3-2.6">
-            <p id="section-14.3-2.6.1">Specification Document(s): <a href="#token-header" class="auto internal xref">Section 3.1</a> of this document<a href="#section-14.3-2.6.1" class="pilcrow">¶</a></p>
+<dt id="section-16.3-2.5"></dt>
+          <dd style="margin-left: 1.5em" id="section-16.3-2.6">
+            <p id="section-16.3-2.6.1">Specification Document(s): <a href="#token-header" class="auto internal xref">Section 3.1</a> of this document<a href="#section-16.3-2.6.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
 </section>
 </div>
 <div id="iana-as-metadata">
-<section id="section-14.4">
+<section id="section-16.4">
         <h3 id="name-oauth-authorization-server-">
-<a href="#section-14.4" class="section-number selfRef">14.4. </a><a href="#name-oauth-authorization-server-" class="section-name selfRef">OAuth Authorization Server Metadata</a>
+<a href="#section-16.4" class="section-number selfRef">16.4. </a><a href="#name-oauth-authorization-server-" class="section-name selfRef">OAuth Authorization Server Metadata</a>
         </h3>
-<p id="section-14.4-1">This specification requests registration of the following names in the "OAuth Authorization Server Metadata" registry (<span>[<a href="#RFC8414" class="cite xref">RFC8414</a>]</span>):<a href="#section-14.4-1" class="pilcrow">¶</a></p>
+<p id="section-16.4-1">This specification requests registration of the following names in the "OAuth Authorization Server Metadata" registry (<span>[<a href="#RFC8414" class="cite xref">RFC8414</a>]</span>):<a href="#section-16.4-1" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-14.4-2.1">
-            <p id="section-14.4-2.1.1"><code>epop_supported</code><a href="#section-14.4-2.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="section-16.4-2.1">
+            <p id="section-16.4-2.1.1"><code>epop_supported</code><a href="#section-16.4-2.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-14.4-2.2">
-            <p id="section-14.4-2.2.1"><code>epop_ntk_types_supported</code><a href="#section-14.4-2.2.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-16.4-2.2">
+            <p id="section-16.4-2.2.1"><code>epop_ntk_types_supported</code><a href="#section-16.4-2.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-14.4-2.3">
-            <p id="section-14.4-2.3.1"><code>epop_key_rotation_supported</code><a href="#section-14.4-2.3.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-16.4-2.3">
+            <p id="section-16.4-2.3.1"><code>epop_key_rotation_supported</code><a href="#section-16.4-2.3.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-14.4-2.4">
-            <p id="section-14.4-2.4.1"><code>epop_cnonce_seed</code><a href="#section-14.4-2.4.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-16.4-2.4">
+            <p id="section-16.4-2.4.1"><code>epop_cnonce_seed</code><a href="#section-16.4-2.4.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-14.4-2.5">
-            <p id="section-14.4-2.5.1"><code>epop_cnonce_step_seconds</code><a href="#section-14.4-2.5.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-16.4-2.5">
+            <p id="section-16.4-2.5.1"><code>epop_cnonce_step_seconds</code><a href="#section-16.4-2.5.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-14.4-2.6">
-            <p id="section-14.4-2.6.1"><code>epop_cnonce_seed_id</code><a href="#section-14.4-2.6.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-16.4-2.6">
+            <p id="section-16.4-2.6.1"><code>epop_cnonce_seed_id</code><a href="#section-16.4-2.6.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-14.4-2.7">
-            <p id="section-14.4-2.7.1"><code>epop_cnonce_required</code><a href="#section-14.4-2.7.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-16.4-2.7">
+            <p id="section-16.4-2.7.1"><code>epop_cnonce_required</code><a href="#section-16.4-2.7.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>
 </div>
 <div id="iana-rs-metadata">
-<section id="section-14.5">
+<section id="section-16.5">
         <h3 id="name-oauth-protected-resource-me">
-<a href="#section-14.5" class="section-number selfRef">14.5. </a><a href="#name-oauth-protected-resource-me" class="section-name selfRef">OAuth Protected Resource Metadata</a>
+<a href="#section-16.5" class="section-number selfRef">16.5. </a><a href="#name-oauth-protected-resource-me" class="section-name selfRef">OAuth Protected Resource Metadata</a>
         </h3>
-<p id="section-14.5-1">This specification requests registration of the following names in the "OAuth Protected Resource Metadata" registry (<span>[<a href="#RFC9728" class="cite xref">RFC9728</a>]</span>):<a href="#section-14.5-1" class="pilcrow">¶</a></p>
+<p id="section-16.5-1">This specification requests registration of the following names in the "OAuth Protected Resource Metadata" registry (<span>[<a href="#RFC9728" class="cite xref">RFC9728</a>]</span>):<a href="#section-16.5-1" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-14.5-2.1">
-            <p id="section-14.5-2.1.1"><code>epop_supported</code><a href="#section-14.5-2.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="section-16.5-2.1">
+            <p id="section-16.5-2.1.1"><code>epop_supported</code><a href="#section-16.5-2.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-14.5-2.2">
-            <p id="section-14.5-2.2.1"><code>epop_ntk_types_supported</code><a href="#section-14.5-2.2.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-16.5-2.2">
+            <p id="section-16.5-2.2.1"><code>epop_ntk_types_supported</code><a href="#section-16.5-2.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-14.5-2.3">
-            <p id="section-14.5-2.3.1"><code>epop_cnonce_seed</code><a href="#section-14.5-2.3.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-16.5-2.3">
+            <p id="section-16.5-2.3.1"><code>epop_cnonce_seed</code><a href="#section-16.5-2.3.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-14.5-2.4">
-            <p id="section-14.5-2.4.1"><code>epop_cnonce_step_seconds</code><a href="#section-14.5-2.4.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-16.5-2.4">
+            <p id="section-16.5-2.4.1"><code>epop_cnonce_step_seconds</code><a href="#section-16.5-2.4.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-14.5-2.5">
-            <p id="section-14.5-2.5.1"><code>epop_cnonce_seed_id</code><a href="#section-14.5-2.5.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-16.5-2.5">
+            <p id="section-16.5-2.5.1"><code>epop_cnonce_seed_id</code><a href="#section-16.5-2.5.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-14.5-2.6">
-            <p id="section-14.5-2.6.1"><code>epop_cnonce_required</code><a href="#section-14.5-2.6.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-16.5-2.6">
+            <p id="section-16.5-2.6.1"><code>epop_cnonce_required</code><a href="#section-16.5-2.6.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>
 </div>
 <div id="iana-sasl">
-<section id="section-14.6">
+<section id="section-16.6">
         <h3 id="name-sasl-mechanism-registration">
-<a href="#section-14.6" class="section-number selfRef">14.6. </a><a href="#name-sasl-mechanism-registration" class="section-name selfRef">SASL Mechanism Registration</a>
+<a href="#section-16.6" class="section-number selfRef">16.6. </a><a href="#name-sasl-mechanism-registration" class="section-name selfRef">SASL Mechanism Registration</a>
         </h3>
-<p id="section-14.6-1">This specification requests registration of the following entry in the "SASL Mechanisms" registry established by <span>[<a href="#RFC4422" class="cite xref">RFC4422</a>]</span>:<a href="#section-14.6-1" class="pilcrow">¶</a></p>
-<span class="break"></span><dl class="dlParallel" id="section-14.6-2">
-          <dt id="section-14.6-2.1">Mechanism Name:</dt>
-          <dd style="margin-left: 1.5em" id="section-14.6-2.2">
-            <p id="section-14.6-2.2.1"><code>OAUTHEPOP</code><a href="#section-14.6-2.2.1" class="pilcrow">¶</a></p>
+<p id="section-16.6-1">This specification requests registration of the following entry in the "SASL Mechanisms" registry established by <span>[<a href="#RFC4422" class="cite xref">RFC4422</a>]</span>:<a href="#section-16.6-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-16.6-2">
+          <dt id="section-16.6-2.1">Mechanism Name:</dt>
+          <dd style="margin-left: 1.5em" id="section-16.6-2.2">
+            <p id="section-16.6-2.2.1"><code>OAUTHEPOP</code><a href="#section-16.6-2.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.6-2.3">Security Considerations:</dt>
-          <dd style="margin-left: 1.5em" id="section-14.6-2.4">
-            <p id="section-14.6-2.4.1">See <a href="#sasl" class="auto internal xref">Section 7</a> of this document.<a href="#section-14.6-2.4.1" class="pilcrow">¶</a></p>
+<dt id="section-16.6-2.3">Security Considerations:</dt>
+          <dd style="margin-left: 1.5em" id="section-16.6-2.4">
+            <p id="section-16.6-2.4.1">See <a href="#sasl" class="auto internal xref">Section 7</a> of this document.<a href="#section-16.6-2.4.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.6-2.5">Published Specification:</dt>
-          <dd style="margin-left: 1.5em" id="section-14.6-2.6">
-            <p id="section-14.6-2.6.1">This document.<a href="#section-14.6-2.6.1" class="pilcrow">¶</a></p>
+<dt id="section-16.6-2.5">Published Specification:</dt>
+          <dd style="margin-left: 1.5em" id="section-16.6-2.6">
+            <p id="section-16.6-2.6.1">This document.<a href="#section-16.6-2.6.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.6-2.7">Intended Usage:</dt>
-          <dd style="margin-left: 1.5em" id="section-14.6-2.8">
-            <p id="section-14.6-2.8.1">COMMON<a href="#section-14.6-2.8.1" class="pilcrow">¶</a></p>
+<dt id="section-16.6-2.7">Intended Usage:</dt>
+          <dd style="margin-left: 1.5em" id="section-16.6-2.8">
+            <p id="section-16.6-2.8.1">COMMON<a href="#section-16.6-2.8.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.6-2.9">Owner/Change Controller:</dt>
-          <dd style="margin-left: 1.5em" id="section-14.6-2.10">
-            <p id="section-14.6-2.10.1">IETF<a href="#section-14.6-2.10.1" class="pilcrow">¶</a></p>
+<dt id="section-16.6-2.9">Owner/Change Controller:</dt>
+          <dd style="margin-left: 1.5em" id="section-16.6-2.10">
+            <p id="section-16.6-2.10.1">IETF<a href="#section-16.6-2.10.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
@@ -3424,14 +3610,14 @@ reject
 </section>
 </div>
 <div id="sec-combined-references">
-<section id="section-15">
+<section id="section-17">
       <h2 id="name-references">
-<a href="#section-15" class="section-number selfRef">15. </a><a href="#name-references" class="section-name selfRef">References</a>
+<a href="#section-17" class="section-number selfRef">17. </a><a href="#name-references" class="section-name selfRef">References</a>
       </h2>
 <div id="sec-normative-references">
-<section id="section-15.1">
+<section id="section-17.1">
         <h3 id="name-normative-references">
-<a href="#section-15.1" class="section-number selfRef">15.1. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+<a href="#section-17.1" class="section-number selfRef">17.1. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
         </h3>
 <dl class="references">
 <dt id="RFC2119">[RFC2119]</dt>
@@ -3445,6 +3631,10 @@ reject
 <dt id="RFC5869">[RFC5869]</dt>
         <dd>
 <span class="refAuthor">Krawczyk, H.</span> and <span class="refAuthor">P. Eronen</span>, <span class="refTitle">"HMAC-based Extract-and-Expand Key Derivation Function (HKDF)"</span>, <span class="seriesInfo">RFC 5869</span>, <span class="seriesInfo">DOI 10.17487/RFC5869</span>, <time datetime="2010-05" class="refDate">May 2010</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc5869">https://www.rfc-editor.org/rfc/rfc5869</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC6749">[RFC6749]</dt>
+        <dd>
+<span class="refAuthor">Hardt, D., Ed.</span>, <span class="refTitle">"The OAuth 2.0 Authorization Framework"</span>, <span class="seriesInfo">RFC 6749</span>, <span class="seriesInfo">DOI 10.17487/RFC6749</span>, <time datetime="2012-10" class="refDate">October 2012</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc6749">https://www.rfc-editor.org/rfc/rfc6749</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC7235">[RFC7235]</dt>
         <dd>
@@ -3502,26 +3692,18 @@ reject
 </section>
 </div>
 <div id="sec-informative-references">
-<section id="section-15.2">
+<section id="section-17.2">
         <h3 id="name-informative-references">
-<a href="#section-15.2" class="section-number selfRef">15.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
+<a href="#section-17.2" class="section-number selfRef">17.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
         </h3>
 <dl class="references">
-<dt id="RFC6749">[RFC6749]</dt>
-        <dd>
-<span class="refAuthor">Hardt, D., Ed.</span>, <span class="refTitle">"The OAuth 2.0 Authorization Framework"</span>, <span class="seriesInfo">RFC 6749</span>, <span class="seriesInfo">DOI 10.17487/RFC6749</span>, <time datetime="2012-10" class="refDate">October 2012</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc6749">https://www.rfc-editor.org/rfc/rfc6749</a>&gt;</span>. </dd>
-<dd class="break"></dd>
-<dt id="RFC7009">[RFC7009]</dt>
-        <dd>
-<span class="refAuthor">Lodderstedt, T., Ed.</span>, <span class="refAuthor">Dronia, S.</span>, and <span class="refAuthor">M. Scurtescu</span>, <span class="refTitle">"OAuth 2.0 Token Revocation"</span>, <span class="seriesInfo">RFC 7009</span>, <span class="seriesInfo">DOI 10.17487/RFC7009</span>, <time datetime="2013-08" class="refDate">August 2013</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc7009">https://www.rfc-editor.org/rfc/rfc7009</a>&gt;</span>. </dd>
-<dd class="break"></dd>
 <dt id="RFC8252">[RFC8252]</dt>
         <dd>
 <span class="refAuthor">Denniss, W.</span> and <span class="refAuthor">J. Bradley</span>, <span class="refTitle">"OAuth 2.0 for Native Apps"</span>, <span class="seriesInfo">BCP 212</span>, <span class="seriesInfo">RFC 8252</span>, <span class="seriesInfo">DOI 10.17487/RFC8252</span>, <time datetime="2017-10" class="refDate">October 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8252">https://www.rfc-editor.org/rfc/rfc8252</a>&gt;</span>. </dd>
 <dd class="break"></dd>
-<dt id="RFC8693">[RFC8693]</dt>
+<dt id="RFC9068">[RFC9068]</dt>
         <dd>
-<span class="refAuthor">Jones, M.</span>, <span class="refAuthor">Nadalin, A.</span>, <span class="refAuthor">Campbell, B., Ed.</span>, <span class="refAuthor">Bradley, J.</span>, and <span class="refAuthor">C. Mortimore</span>, <span class="refTitle">"OAuth 2.0 Token Exchange"</span>, <span class="seriesInfo">RFC 8693</span>, <span class="seriesInfo">DOI 10.17487/RFC8693</span>, <time datetime="2020-01" class="refDate">January 2020</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8693">https://www.rfc-editor.org/rfc/rfc8693</a>&gt;</span>. </dd>
+<span class="refAuthor">Bertocci, V.</span>, <span class="refTitle">"JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens"</span>, <span class="seriesInfo">RFC 9068</span>, <span class="seriesInfo">DOI 10.17487/RFC9068</span>, <time datetime="2021-10" class="refDate">October 2021</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9068">https://www.rfc-editor.org/rfc/rfc9068</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC9126">[RFC9126]</dt>
       <dd>
@@ -3532,105 +3714,16 @@ reject
 </div>
 </section>
 </div>
-<div id="related-specs">
-<section id="appendix-A">
-      <h2 id="name-relationship-to-other-speci">
-<a href="#appendix-A" class="section-number selfRef">Appendix A. </a><a href="#name-relationship-to-other-speci" class="section-name selfRef">Relationship to Other Specifications</a>
-      </h2>
-<table class="center" id="table-13">
-        <caption><a href="#table-13" class="selfRef">Table 13</a></caption>
-<thead>
-          <tr>
-            <th class="text-left" rowspan="1" colspan="1">RFC</th>
-            <th class="text-left" rowspan="1" colspan="1">Title</th>
-            <th class="text-left" rowspan="1" colspan="1">How EPOP Extends It</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="text-left" rowspan="1" colspan="1">
-              <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span>
-</td>
-            <td class="text-left" rowspan="1" colspan="1">A Set of Simple Authentication and Security Layer (SASL) Mechanisms for OAuth</td>
-            <td class="text-left" rowspan="1" colspan="1">EPOP extends RFC 7628 by introducing <code>EPOP</code> as a new OAuth authentication type for the SASL <code>auth</code> field and defining <code>OAUTHEPOP</code> as a new SASL mechanism. All behaviors defined in RFC 7628 remain in effect; this document adds only the <code>auth=EPOP</code> field value and the key binding check that <code>OAUTHBEARER</code> servers apply when they encounter it.</td>
-          </tr>
-          <tr>
-            <td class="text-left" rowspan="1" colspan="1">
-              <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>
-</td>
-            <td class="text-left" rowspan="1" colspan="1">OAuth 2.0 Demonstrating Proof of Possession (DPoP)</td>
-            <td class="text-left" rowspan="1" colspan="1">EPOP generalizes the DPoP proof model: replaces <code>htm</code>/<code>htu</code> with <code>rctx</code> for protocol agnosticism; replaces the <code>ath</code> hash with <code>ntk</code> embedding so credential and proof travel as one object; extends coverage to authorization codes and refresh tokens; adds atomic key rotation and the offline <code>cnonce</code>.</td>
-          </tr>
-          <tr>
-            <td class="text-left" rowspan="1" colspan="1">
-              <span>[<a href="#RFC7636" class="cite xref">RFC7636</a>]</span>
-</td>
-            <td class="text-left" rowspan="1" colspan="1">Proof Key for Code Exchange (PKCE)</td>
-            <td class="text-left" rowspan="1" colspan="1">EPOP elevates PKCE from <span class="bcp14">RECOMMENDED</span> to <span class="bcp14">REQUIRED</span> in all authorization code flows.</td>
-          </tr>
-          <tr>
-            <td class="text-left" rowspan="1" colspan="1">
-              <span>[<a href="#RFC8414" class="cite xref">RFC8414</a>]</span>
-</td>
-            <td class="text-left" rowspan="1" colspan="1">OAuth 2.0 Authorization Server Metadata</td>
-            <td class="text-left" rowspan="1" colspan="1">EPOP adds new discovery fields to the well-known document: <code>epop_supported</code>, <code>epop_ntk_types_supported</code>, <code>epop_key_rotation_supported</code>, and the <code>epop_cnonce_*</code> family.</td>
-          </tr>
-          <tr>
-            <td class="text-left" rowspan="1" colspan="1">
-              <span>[<a href="#RFC7638" class="cite xref">RFC7638</a>]</span>
-</td>
-            <td class="text-left" rowspan="1" colspan="1">JSON Web Key (JWK) Thumbprint</td>
-            <td class="text-left" rowspan="1" colspan="1">EPOP uses the SHA-256 JWK thumbprint (<code>cnf.jkt</code>) as its primary key binding primitive — embedded in every issued token and checked by the RS as its main defense against token substitution.</td>
-          </tr>
-          <tr>
-            <td class="text-left" rowspan="1" colspan="1">
-              <span>[<a href="#RFC7662" class="cite xref">RFC7662</a>]</span>
-</td>
-            <td class="text-left" rowspan="1" colspan="1">OAuth 2.0 Token Introspection</td>
-            <td class="text-left" rowspan="1" colspan="1">EPOP extends introspection responses to include <code>cnf.jkt</code>. For opaque tokens the AS returns the server-side registered client EPOP public key; for JWT tokens it is extracted from the token's own claim. Introspection requests may themselves be EPOP-wrapped to authenticate the caller.</td>
-          </tr>
-          <tr>
-            <td class="text-left" rowspan="1" colspan="1">
-              <span>[<a href="#RFC8693" class="cite xref">RFC8693</a>]</span>
-</td>
-            <td class="text-left" rowspan="1" colspan="1">OAuth 2.0 Token Exchange</td>
-            <td class="text-left" rowspan="1" colspan="1">The <code>subject_token</code> travels inside EPOP <code>ntk</code>, requiring the requesting service to prove possession of the key bound to that token before an exchange is granted.</td>
-          </tr>
-          <tr>
-            <td class="text-left" rowspan="1" colspan="1">
-              <span>[<a href="#RFC7009" class="cite xref">RFC7009</a>]</span>
-</td>
-            <td class="text-left" rowspan="1" colspan="1">OAuth 2.0 Token Revocation</td>
-            <td class="text-left" rowspan="1" colspan="1">The token to be revoked travels inside EPOP <code>ntk</code>; the AS verifies key binding before revoking, preventing third-party revocation.</td>
-          </tr>
-          <tr>
-            <td class="text-left" rowspan="1" colspan="1">
-              <span>[<a href="#RFC9126" class="cite xref">RFC9126</a>]</span>
-</td>
-            <td class="text-left" rowspan="1" colspan="1">OAuth 2.0 Pushed Authorization Requests (PAR)</td>
-            <td class="text-left" rowspan="1" colspan="1">EPOP extends PAR to let the client declare <code>cnf.jkt</code> at the earliest point in the flow, pre-binding the authorization code before the browser redirect.</td>
-          </tr>
-          <tr>
-            <td class="text-left" rowspan="1" colspan="1">
-              <span>[<a href="#RFC5869" class="cite xref">RFC5869</a>]</span>
-</td>
-            <td class="text-left" rowspan="1" colspan="1">HMAC-based Key Derivation Function (HKDF)</td>
-            <td class="text-left" rowspan="1" colspan="1">EPOP uses HKDF-SHA256 to derive a per-client key from the optional server-controlled <code>epop_cnonce_seed</code> and the client's public key, enabling stateless offline cnonce computation.</td>
-          </tr>
-        </tbody>
-      </table>
-</section>
-</div>
 <div id="acknowledgments">
-<section id="appendix-B">
+<section id="appendix-A">
       <h2 id="name-acknowledgments">
 <a href="#name-acknowledgments" class="section-name selfRef">Acknowledgments</a>
       </h2>
-<p id="appendix-B-1">The author thanks the OAuth Working Group for their foundational work on DPoP (<span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>), PKCE (<span>[<a href="#RFC7636" class="cite xref">RFC7636</a>]</span>), and the related specifications that this document extends.<a href="#appendix-B-1" class="pilcrow">¶</a></p>
+<p id="appendix-A-1">The author thanks the OAuth Working Group for their foundational work on DPoP (<span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>), PKCE (<span>[<a href="#RFC7636" class="cite xref">RFC7636</a>]</span>), and the related specifications that this document extends.<a href="#appendix-A-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="authors-addresses">
-<section id="appendix-C">
+<section id="appendix-B">
       <h2 id="name-authors-address">
 <a href="#name-authors-address" class="section-name selfRef">Author's Address</a>
       </h2>
