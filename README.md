@@ -1,8 +1,8 @@
 <!-- regenerate: on (set to off if you edit this file) -->
 
-# Enveloped Proof of Possession (EPOP) for OAuth 2.0
+#JSON Web Token (JWT) Profile for OAuth 2.0 Enveloped Proof of Possession (EPOP)
 
-This is the working area for the individual Internet-Draft, "Enveloped Proof of Possession (EPOP) for OAuth 2.0".
+This is the working area for the individual Internet-Draft, "JSON Web Token (JWT) Profile for OAuth 2.0 Enveloped Proof of Possession (EPOP)".
 
 * [Editor's Copy](https://asambeka.github.io/epop/#go.draft-ambekar-oauth-epop.html)
 * [Datatracker Page](https://datatracker.ietf.org/doc/draft-ambekar-oauth-epop)

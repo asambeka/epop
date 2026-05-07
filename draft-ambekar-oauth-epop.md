@@ -54,6 +54,7 @@ normative:
 informative:
   RFC8252:
   RFC9068:
+  RFC9110:
   RFC9126:
 
 ...
@@ -62,7 +63,7 @@ informative:
 
 This specification defines a profile for OAuth 2.0 ({{RFC6749}}) credentials — authorization codes, access tokens, and refresh tokens — issued as enveloped JSON Web Tokens (JWT) ({{RFC7519}}) with sender-constraining proof of possession. Authorization servers, resource servers, and clients from different vendors can leverage this profile to issue, transmit, and validate sender-constrained tokens in an interoperable manner across HTTP and non-HTTP transports alike, including MQTT, Kafka, the Model Context Protocol (MCP), and SASL-based protocols such as those defined in {{RFC7628}}.
 
-The profile defines the `epop+jwt` token type, in which access tokens and refresh tokens are nested within the `ntk` (Nested Token) claim of a signed JWT envelope. In authorization code exchange flows, the authorization code travels as the standard `code` form parameter and the EPOP token provides only `cnf.jkt` key binding. For all other flows, the client's proof of key possession and the credential are a single, inseparable cryptographic object. The profile introduces a protocol-neutral `rctx` (Request Context) object in place of the HTTP-specific `htm`/`htu` claims of {{RFC9449}}, an offline-derived client nonce (`cnonce`) that eliminates the server-issued nonce round-trip and enables stateless nonce validation, and a mechanism for cryptographic key rotation during the refresh token exchange. To support SASL-based protocols, this document further defines `OAUTHEPOP`, a new SASL mechanism extending {{RFC7628}} with sender-constraining support.
+The profile defines the `epop+jwt` token type, in which access tokens and refresh tokens are nested within the `ntk` (Nested Token) claim of a signed JWT envelope.  The profile uses two HTTP transports that reflect distinct roles: `Authorization: EPOP` carries the credential at resource server and UserInfo endpoints; an `EPOP` proof header carries the key binding proof at Authorization Server endpoints (token endpoint and PAR), where the `Authorization` header is reserved for client authentication. The profile introduces a protocol-neutral `rctx` (Request Context) object in place of the HTTP-specific `htm`/`htu` claims of {{RFC9449}}, an offline-derived client nonce (`cnonce`) that eliminates the server-issued nonce round-trip and enables stateless nonce validation, and a mechanism for cryptographic key rotation during the refresh token exchange. To support SASL-based protocols, this document further defines `OAUTHEPOP`, a new SASL mechanism extending {{RFC7628}} with sender-constraining support.
 
 --- middle
 
@@ -73,23 +74,6 @@ The OAuth 2.0 framework ({{RFC6749}}) does not mandate a format for sender-const
 This specification addresses that gap by defining a profile for OAuth 2.0 credentials issued as enveloped JSON Web Tokens (JWT) ({{RFC7519}}). The profile defines the `epop+jwt` token type, in which an EPOP token nests the OAuth credential within its `ntk` (Nested Token) claim and signs the entire structure with the client's private key. Authorization servers, resource servers, and clients from different vendors can implement this profile to issue, transmit, and validate sender-constrained tokens in an interoperable manner.
 
 The profile is designed so that the credential and proof are a single, inseparable cryptographic object — there is no credential without a proof, and no proof without a credential. A protocol-neutral `rctx` (Request Context) object replaces the HTTP-specific `htm`/`htu` claims of {{RFC9449}}, enabling EPOP tokens to operate over any transport — HTTP, MQTT, Kafka, gRPC, the Model Context Protocol (MCP), and SASL-based protocols — without protocol-specific adaptation. An offline-derived client nonce (`cnonce`) eliminates the server-issued nonce round-trip required by {{RFC9449}} and enables stateless nonce validation. Coverage extends to authorization codes and refresh tokens as well as access tokens, and the profile defines atomic key rotation during the refresh token exchange. For SASL-based protocols, this document defines `OAUTHEPOP`, a new SASL mechanism extending {{RFC7628}} with sender-constraining support; all behaviors defined in {{RFC7628}} remain unchanged.
-
-## Comparison with DPoP {#comparison-dpop}
-
-| Feature | RFC 9449 (DPoP) | EPOP |
-|:---|:---|:---|
-| Token type header | `dpop+jwt` | `epop+jwt` |
-| Credential binding | `ath` (SHA-256 hash of access token) | `ntk` (credential embedded) |
-| Target resource | `htu` (HTTP URI only) | `rctx.res` (URI or URN, any protocol) |
-| Action context | `htm` (HTTP method only) | `rctx.method` (any action string) |
-| Request correlation | Not defined | `rctx.id` (optional) |
-| Key rotation | Not defined | Recursive EPOP envelope with `cnf.jkt` |
-| Covered token types | Access tokens only | Authorization codes, access tokens, refresh tokens |
-| Credential transport | `Authorization: Bearer` (separate) | `Authorization: EPOP` header for all endpoints |
-| PKCE requirement | Recommended | REQUIRED in authorization code flows |
-| Replay protection | `jti` + `iat` | Same |
-| Nonce | Server-issued (requires round-trip and server state) | `cnonce`: offline TOTP-style (no round-trip, no server state) |
-| Authorization request key binding | `dpop_jkt` parameter (supported) | Not supported (see {{auth-request-binding}}) |
 
 # Conventions and Definitions
 
@@ -259,7 +243,15 @@ Step 4 — Produce the compact serialization:
 epop_token = BASE64URL(header) + "." + BASE64URL(payload) + "." + BASE64URL(signature)
 ~~~
 
-Step 5 — Transmit the EPOP token in the HTTP `Authorization` header using the `EPOP` authentication scheme ({{RFC7235}}) for all endpoints — AS endpoints (token, introspection, revocation, PAR), resource server access, and the UserInfo endpoint:
+Step 5 — Transmit the EPOP token using the appropriate HTTP transport for the target endpoint:
+
+**Authorization Server endpoints** (token endpoint and PAR): send in the `EPOP` request header. This preserves the `Authorization` header for client authentication (e.g., `Authorization: Basic` for confidential clients):
+
+~~~http
+EPOP: <compact-serialized-epop-token>
+~~~
+
+**Resource server and UserInfo endpoints**: send in the `Authorization` header using the `EPOP` authentication scheme ({{RFC7235}}). No `Authorization: Bearer` header is used:
 
 ~~~http
 Authorization: EPOP <compact-serialized-epop-token>
@@ -380,8 +372,7 @@ Client                           AS                         RS
   |<-- 2. Authorization Code ----|                           |
   |                              |                           |
   |-- 3. Token Request (POST) -->|                           |
-  |   Authorization: EPOP <token:|                           |
-  |     cnf.jkt, rctx>           |                           |
+  |   EPOP: <token: cnf.jkt,rctx>|                           |
   |   + code, code_verifier      |                           |
   |   (form parameters)          |                           |
   |                              |                           |
@@ -401,7 +392,8 @@ Token request (Step 3):
 POST /token HTTP/1.1
 Host: as.example.com
 Content-Type: application/x-www-form-urlencoded
-Authorization: EPOP <compact-serialized-epop-token>
+Authorization: Basic czZCaGRSa3F0MzpnWDFmQmF0M2JW
+EPOP: <compact-serialized-epop-token>
 
 grant_type=authorization_code
 &code=<authorization-code>
@@ -553,7 +545,8 @@ Whether the refresh token is opaque or a JWT, the client wraps it in a single-la
 POST /token HTTP/1.1
 Host: as.example.com
 Content-Type: application/x-www-form-urlencoded
-Authorization: EPOP <compact-serialized-epop-token>
+Authorization: Basic czZCaGRSa3F0MzpnWDFmQmF0M2JW
+EPOP: <compact-serialized-epop-token>
 
 grant_type=refresh_token
 &client_id=s6BhdRkqt3
@@ -757,7 +750,9 @@ Token revocation is not covered by this specification.
 
 ## Pushed Authorization Requests {#par}
 
-For PAR ({{RFC9126}}), the client MAY declare `cnf.jkt` at the PAR endpoint to pre-bind the authorization code to the client's key before the browser redirect:
+For PAR ({{RFC9126}}), the client MAY declare its public key fingerprint at the PAR endpoint to pre-bind the authorization code to the client's key before the browser redirect. The client sends the EPOP token in the `EPOP` proof header — with `cnf.jkt` and `rctx` but no `ntk` — alongside the standard PAR request parameters. The `Authorization` header carries client authentication as usual.
+
+EPOP token payload for the PAR request:
 
 ~~~json
 {
@@ -771,7 +766,24 @@ For PAR ({{RFC9126}}), the client MAY declare `cnf.jkt` at the PAR endpoint to p
 }
 ~~~
 
-Once a `cnf.jkt` is registered via PAR, that key binding is final for the lifetime of the resulting authorization code. If the EPOP token presented at the token endpoint declares a different `cnf.jkt` than the one recorded at the PAR endpoint, the AS MUST reject the request.
+HTTP request:
+
+~~~http
+POST /par HTTP/1.1
+Host: as.example.com
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic czZCaGRSa3F0MzpnWDFmQmF0M2JW
+EPOP: <compact-serialized-epop-token>
+
+response_type=code
+&client_id=s6BhdRkqt3
+&redirect_uri=https%3A%2F%2Fclient.example.com%2Fcb
+&scope=read%3Aorders
+&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
+&code_challenge_method=S256
+~~~
+
+The AS verifies the EPOP signature, extracts `cnf.jkt`, and records it against the `request_uri` it returns. Once a `cnf.jkt` is registered via PAR, that key binding is final for the lifetime of the resulting authorization code. If the EPOP token presented at the token endpoint declares a different `cnf.jkt` than the one recorded at the PAR endpoint, the AS MUST reject the request.
 
 ## Authorization Request Key Binding Not Supported {#auth-request-binding}
 
@@ -1057,6 +1069,25 @@ Authentication Scheme Name:
 
 Pointer to specification text:
 : {{resource-access}} and {{token-profile}} of this document.
+
+## HTTP Header Field Registration {#iana-http-header}
+
+This specification requests registration of the following entry in the "Permanent Message Header Field Names" registry ({{RFC9110}}):
+
+Header Field Name:
+: `EPOP`
+
+Applicable Protocol:
+: http
+
+Status:
+: standard
+
+Author/Change Controller:
+: IETF
+
+Specification Document(s):
+: {{par}} and {{auth-code-flow}} of this document.
 
 ## JWT Claims Registration {#iana-jwt-claims}
 
