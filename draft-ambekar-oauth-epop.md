@@ -135,13 +135,14 @@ An EPOP token is a signed JWT ({{RFC7519}}) with `typ: epop+jwt`.
 
 ## Header {#token-header}
 
-The EPOP token JOSE header MUST include the following parameters:
+`typ`
+: REQUIRED. MUST be `epop+jwt`.
 
-| Parameter | Required | Description |
-|:---|:---|:---|
-| `typ` | REQUIRED | MUST be `epop+jwt`. |
-| `alg` | REQUIRED | Asymmetric signature algorithm. Edwards curve algorithms are RECOMMENDED for their superior security, performance, and payload compactness; see {{sec-algorithm-selection}}. Symmetric algorithms (`HS*`) and `none` MUST NOT be used. |
-| `jwk` | REQUIRED | The client's public key as a JWK ({{RFC7517}}). MUST NOT contain private key material. |
+`alg`
+: REQUIRED. Asymmetric signature algorithm. Edwards curve algorithms are RECOMMENDED for their superior security, performance, and payload compactness; see {{sec-algorithm-selection}}. Symmetric algorithms (`HS*`) and `none` MUST NOT be used.
+
+`jwk`
+: REQUIRED. The client's public key as a JWK ({{RFC7517}}). MUST NOT contain private key material.
 
 Example header:
 
