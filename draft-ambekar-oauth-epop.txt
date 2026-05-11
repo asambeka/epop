@@ -287,26 +287,15 @@ Table of Contents
 
 3.1.  Header
 
-   The EPOP token JOSE header MUST include the following parameters:
+   typ  REQUIRED.  MUST be epop+jwt.
 
-    +===========+==========+==========================================+
-    | Parameter | Required | Description                              |
-    +===========+==========+==========================================+
-    | typ       | REQUIRED | MUST be epop+jwt.                        |
-    +-----------+----------+------------------------------------------+
-    | alg       | REQUIRED | Asymmetric signature algorithm.  Edwards |
-    |           |          | curve algorithms are RECOMMENDED for     |
-    |           |          | their superior security, performance,    |
-    |           |          | and payload compactness; see             |
-    |           |          | Section 10.9.  Symmetric algorithms      |
-    |           |          | (HS*) and none MUST NOT be used.         |
-    +-----------+----------+------------------------------------------+
-    | jwk       | REQUIRED | The client's public key as a JWK         |
-    |           |          | ([RFC7517]).  MUST NOT contain private   |
-    |           |          | key material.                            |
-    +-----------+----------+------------------------------------------+
+   alg  REQUIRED.  Asymmetric signature algorithm.  Edwards curve
+      algorithms are RECOMMENDED for their superior security,
+      performance, and payload compactness; see Section 10.9.  Symmetric
+      algorithms (HS*) and none MUST NOT be used.
 
-                                  Table 1
+   jwk  REQUIRED.  The client's public key as a JWK ([RFC7517]).  MUST
+      NOT contain private key material.
 
    Example header:
 
@@ -526,7 +515,7 @@ Table of Contents
    |                  |                              | PAR            |
    +------------------+------------------------------+----------------+
 
-                                 Table 2
+                                 Table 1
 
 6.1.2.  Authorization Code Flow with PKCE
 
@@ -915,7 +904,7 @@ Table of Contents
      | gRPC     | urn:grpc:service:helloworld.Greeter | SayHello    |
      +----------+-------------------------------------+-------------+
 
-                                 Table 3
+                                 Table 2
 
    The rctx.id field lets the server correlate the EPOP token with an
    asynchronous response — critical in multiplexed or streaming
@@ -1099,7 +1088,7 @@ n,,<SOH>auth=EPOP <compact-epop-token><SOH>host=mail.example.com<SOH>port=993<SO
       | side)                | update MUST NOT be possible         |
       +----------------------+-------------------------------------+
 
-                                 Table 4
+                                 Table 3
 
 7.  Client Nonce (cnonce)
 
@@ -1341,7 +1330,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    |           |                | computation.                        |
    +-----------+----------------+-------------------------------------+
 
-                                 Table 5
+                                 Table 4
 
 10.  Security Considerations
 
@@ -1462,7 +1451,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    |resistance  |(constant-time)| (constant-time) |        |          |
    +------------+---------------+-----------------+--------+----------+
 
-                                 Table 6
+                                 Table 5
 
 10.10.  Intermediary Transparency
 
@@ -1734,7 +1723,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    |             |        | correlation ID           | this document  |
    +-------------+--------+--------------------------+----------------+
 
-                                 Table 7
+                                 Table 6
 
 12.12.  SASL Mechanism Registration
 
