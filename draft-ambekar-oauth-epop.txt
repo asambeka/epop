@@ -4,8 +4,8 @@
 
 Web Authorization Protocol                                    A. Ambekar
 Internet-Draft                                                      eBay
-Intended status: Standards Track                             11 May 2026
-Expires: 12 November 2026
+Intended status: Standards Track                             12 May 2026
+Expires: 13 November 2026
 
 
 JSON Web Token (JWT) Profile for OAuth 2.0 Enveloped Proof of Possession
@@ -61,7 +61,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 12 November 2026.
+   This Internet-Draft will expire on 13 November 2026.
 
 Copyright Notice
 
@@ -1431,28 +1431,6 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    SHOULD NOT be used in new implementations.  Implementations MUST
    follow [RFC8725].
 
-   +============+===============+=================+========+==========+
-   |Property    |EdDSA / Ed25519| EdDSA / Ed448   |ES256   |RS256     |
-   |            |               |                 |(P-256) |(RSA-2048)|
-   +============+===============+=================+========+==========+
-   |Security    |128-bit        | 224-bit         |128-bit |112-bit   |
-   |level       |               |                 |        |          |
-   +------------+---------------+-----------------+--------+----------+
-   |Signature   |64 bytes       | 114 bytes       |64 bytes|256 bytes |
-   |size        |               |                 |        |          |
-   +------------+---------------+-----------------+--------+----------+
-   |Public key  |32 bytes       | 57 bytes        |64 bytes|~256 bytes|
-   |size        |               |                 |        |          |
-   +------------+---------------+-----------------+--------+----------+
-   |Signing     |Very fast      | Fast            |Moderate|Slow      |
-   |speed       |(deterministic)| (deterministic) |        |          |
-   +------------+---------------+-----------------+--------+----------+
-   |Side-channel|Strong         | Strong          |Moderate|Weak      |
-   |resistance  |(constant-time)| (constant-time) |        |          |
-   +------------+---------------+-----------------+--------+----------+
-
-                                 Table 5
-
 10.10.  Intermediary Transparency
 
    Because the EPOP proof is embedded within the token rather than
@@ -1723,7 +1701,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    |             |        | correlation ID           | this document  |
    +-------------+--------+--------------------------+----------------+
 
-                                 Table 6
+                                 Table 5
 
 12.12.  SASL Mechanism Registration
 

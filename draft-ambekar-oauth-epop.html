@@ -1055,7 +1055,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Ambekar</td>
-<td class="center">Expires 12 November 2026</td>
+<td class="center">Expires 13 November 2026</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1068,12 +1068,12 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <dd class="internet-draft">draft-ambekar-oauth-epop-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-05-11" class="published">11 May 2026</time>
+<time datetime="2026-05-12" class="published">12 May 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Standards Track</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2026-11-12">12 November 2026</time></dd>
+<dd class="expires"><time datetime="2026-11-13">13 November 2026</time></dd>
 <dt class="label-authors">Author:</dt>
 <dd class="authors">
 <div class="author">
@@ -1123,7 +1123,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 12 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 13 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -2775,55 +2775,6 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
 <a href="#section-10.9" class="section-number selfRef">10.9. </a><a href="#name-algorithm-selection" class="section-name selfRef">Algorithm Selection</a>
         </h3>
 <p id="section-10.9-1">EPOP tokens are generated per-request at high frequency; algorithm choice directly affects signing latency, token size, and security posture. The <code>jwk</code> embedded in every EPOP header makes key footprint particularly significant for constrained transports. Edwards curve algorithms are <span class="bcp14">RECOMMENDED</span>. Ed25519 is the primary choice — smallest public key, fastest deterministic signing, and 128-bit security adequate for short-lived credentials. Ed448 is appropriate for high-assurance environments requiring a larger security margin. <code>ES256</code> is acceptable where Edwards curves are unavailable. RSA algorithms <span class="bcp14">SHOULD NOT</span> be used in new implementations. Implementations <span class="bcp14">MUST</span> follow <span>[<a href="#RFC8725" class="cite xref">RFC8725</a>]</span>.<a href="#section-10.9-1" class="pilcrow">¶</a></p>
-<table class="center" id="table-5">
-          <caption><a href="#table-5" class="selfRef">Table 5</a></caption>
-<thead>
-            <tr>
-              <th class="text-left" rowspan="1" colspan="1">Property</th>
-              <th class="text-left" rowspan="1" colspan="1">EdDSA / Ed25519</th>
-              <th class="text-left" rowspan="1" colspan="1">EdDSA / Ed448</th>
-              <th class="text-left" rowspan="1" colspan="1">ES256 (P-256)</th>
-              <th class="text-left" rowspan="1" colspan="1">RS256 (RSA-2048)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="text-left" rowspan="1" colspan="1">Security level</td>
-              <td class="text-left" rowspan="1" colspan="1">128-bit</td>
-              <td class="text-left" rowspan="1" colspan="1">224-bit</td>
-              <td class="text-left" rowspan="1" colspan="1">128-bit</td>
-              <td class="text-left" rowspan="1" colspan="1">112-bit</td>
-            </tr>
-            <tr>
-              <td class="text-left" rowspan="1" colspan="1">Signature size</td>
-              <td class="text-left" rowspan="1" colspan="1">64 bytes</td>
-              <td class="text-left" rowspan="1" colspan="1">114 bytes</td>
-              <td class="text-left" rowspan="1" colspan="1">64 bytes</td>
-              <td class="text-left" rowspan="1" colspan="1">256 bytes</td>
-            </tr>
-            <tr>
-              <td class="text-left" rowspan="1" colspan="1">Public key size</td>
-              <td class="text-left" rowspan="1" colspan="1">32 bytes</td>
-              <td class="text-left" rowspan="1" colspan="1">57 bytes</td>
-              <td class="text-left" rowspan="1" colspan="1">64 bytes</td>
-              <td class="text-left" rowspan="1" colspan="1">~256 bytes</td>
-            </tr>
-            <tr>
-              <td class="text-left" rowspan="1" colspan="1">Signing speed</td>
-              <td class="text-left" rowspan="1" colspan="1">Very fast (deterministic)</td>
-              <td class="text-left" rowspan="1" colspan="1">Fast (deterministic)</td>
-              <td class="text-left" rowspan="1" colspan="1">Moderate</td>
-              <td class="text-left" rowspan="1" colspan="1">Slow</td>
-            </tr>
-            <tr>
-              <td class="text-left" rowspan="1" colspan="1">Side-channel resistance</td>
-              <td class="text-left" rowspan="1" colspan="1">Strong (constant-time)</td>
-              <td class="text-left" rowspan="1" colspan="1">Strong (constant-time)</td>
-              <td class="text-left" rowspan="1" colspan="1">Moderate</td>
-              <td class="text-left" rowspan="1" colspan="1">Weak</td>
-            </tr>
-          </tbody>
-        </table>
 </section>
 </div>
 <div id="sec-intermediary-transparency">
@@ -3231,8 +3182,8 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
         </h3>
 <p id="section-12.11-1">This specification requests creation of a new registry, "EPOP Request Context Members", under the "OAuth Parameters" registry group. The registry is to be maintained as Specification Required per <span>[<a href="#RFC8126" class="cite xref">RFC8126</a>]</span>.<a href="#section-12.11-1" class="pilcrow">¶</a></p>
 <p id="section-12.11-2">Initial registrations:<a href="#section-12.11-2" class="pilcrow">¶</a></p>
-<table class="center" id="table-6">
-          <caption><a href="#table-6" class="selfRef">Table 6</a></caption>
+<table class="center" id="table-5">
+          <caption><a href="#table-5" class="selfRef">Table 5</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Member Name</th>
