@@ -923,14 +923,6 @@ Binding a public key thumbprint inside the authorization request URL (as defined
 
 EPOP tokens are generated per-request at high frequency; algorithm choice directly affects signing latency, token size, and security posture. The `jwk` embedded in every EPOP header makes key footprint particularly significant for constrained transports. Edwards curve algorithms are RECOMMENDED. Ed25519 is the primary choice — smallest public key, fastest deterministic signing, and 128-bit security adequate for short-lived credentials. Ed448 is appropriate for high-assurance environments requiring a larger security margin. `ES256` is acceptable where Edwards curves are unavailable. RSA algorithms SHOULD NOT be used in new implementations. Implementations MUST follow {{RFC8725}}.
 
-| Property | EdDSA / Ed25519 | EdDSA / Ed448 | ES256 (P-256) | RS256 (RSA-2048) |
-|:---|:---|:---|:---|:---|
-| Security level | 128-bit | 224-bit | 128-bit | 112-bit |
-| Signature size | 64 bytes | 114 bytes | 64 bytes | 256 bytes |
-| Public key size | 32 bytes | 57 bytes | 64 bytes | ~256 bytes |
-| Signing speed | Very fast (deterministic) | Fast (deterministic) | Moderate | Slow |
-| Side-channel resistance | Strong (constant-time) | Strong (constant-time) | Moderate | Weak |
-
 ## Intermediary Transparency {#sec-intermediary-transparency}
 
 Because the EPOP proof is embedded within the token rather than transmitted as a separate header, EPOP tokens are transparent to intermediaries that forward the `Authorization` header without modification. Unlike DPoP, where loss of the `DPoP` header at any hop silently breaks proof-of-possession, EPOP's enveloped structure ensures that the proof travels with the credential through every layer of a distributed system. Resource servers MUST NOT accept EPOP tokens from which the outer envelope signature has been stripped or replaced by an intermediary; the full compact-serialized EPOP token MUST be forwarded unchanged.
