@@ -4,8 +4,8 @@
 
 Web Authorization Protocol                                    A. Ambekar
 Internet-Draft                                                      eBay
-Intended status: Standards Track                             12 May 2026
-Expires: 13 November 2026
+Intended status: Standards Track                             17 May 2026
+Expires: 18 November 2026
 
 
 JSON Web Token (JWT) Profile for OAuth 2.0 Enveloped Proof of Possession
@@ -61,7 +61,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 13 November 2026.
+   This Internet-Draft will expire on 18 November 2026.
 
 Copyright Notice
 
