@@ -883,6 +883,97 @@ The `epop_cnonce_seed`, `epop_cnonce_seed_id`, and `epop_cnonce_step_seconds` va
 | {{RFC9126}} | OAuth 2.0 Pushed Authorization Requests (PAR) | EPOP extends PAR to let the client declare `cnf.jkt` at the earliest point in the flow, pre-binding the authorization code before the browser redirect. |
 | {{RFC5869}} | HMAC-based Key Derivation Function (HKDF) | EPOP uses HKDF-SHA256 to derive a per-client key from the optional server-controlled `epop_cnonce_seed` and the client's public key, enabling stateless offline cnonce computation. |
 
+
+# Performance Considerations {#performance}
+
+## Token Size {#perf-token-size}
+
+EPOP consolidates the access token and the proof of possession into a single
+token, eliminating the separate DPoP proof header. The net effect on wire size
+depends on the access token format in use.
+
+The table below compares the combined size of an AT+DPoP pair against an EPOP
+token for representative algorithm combinations, and shows the percentage
+change (negative = EPOP is smaller; positive = EPOP is larger). Sizes include
+the full Base64url-encoded token strings as they would appear on the wire.
+The compressed figures approximate HTTP/2 header-compression (Huffman coding)
+applied to the token value.
+
+| AT Format   | Proof Algorithm | AT+DPoP / EPOP Raw (B) | Raw Δ% | AT+DPoP / EPOP Compressed (B) | Compressed Δ% |
+|---|---|--:|--:|--:|--:|
+| Opaque      | Ed25519 | 599 / 553   | −7.7%  | 437 / 398   | −8.9%  |
+| Opaque      | RSA-256 | 1247 / 1201 | −3.7%  | 918 / 880   | −4.1%  |
+| JWT Ed25519 | Ed25519 | 1030 / 1128 | +9.5%  | 745 / 811   | +8.9%  |
+| JWT Ed25519 | RSA-256 | 1678 / 1776 | +5.8%  | 1230 / 1291 | +5.0%  |
+| JWT RSA-256 | Ed25519 | 1288 / 1472 | +14.3% | 950 / 1050  | +10.5% |
+| JWT RSA-256 | RSA-256 | 1936 / 2120 | +9.5%  | 1429 / 1536 | +7.5%  |
+{: #tbl-token-size title="Token size comparison: AT+DPoP vs EPOP"}
+
+EPOP is 4–9% smaller than AT+DPoP when the access token is opaque, because
+eliminating the separate DPoP proof token removes its JOSE header, claims, and
+signature overhead. When the access token is a JWT, EPOP is 6–14% larger, as
+the full AT payload must be re-encoded inside the EPOP envelope; the overhead
+is highest with RSA keys, where large key material is effectively carried
+twice. Header compression (e.g., HPACK in HTTP/2) reduces the gap in all
+cases but does not reverse the direction of the comparison.
+
+The absolute size differences in the table (46–184 bytes uncompressed) are
+small relative to typical HTTP request sizes. On networks with standard MTUs
+(1500 bytes) or jumbo frames (9000 bytes), these differences are unlikely to
+cause additional TCP segment fragmentation for most requests. However,
+deployments on legacy or constrained networks with smaller effective MTUs, or
+requests already near the fragmentation boundary due to large URL paths or
+other headers, may see an additional packet fragment introduced in JWT AT
+configurations where EPOP is larger. Implementers with strict packet-budget
+requirements on such networks should prefer opaque access tokens with Ed25519
+proofs, which yield the smallest EPOP tokens.
+
+## Computational Overhead {#perf-computation}
+
+EPOP validation replaces the two independent verification steps required for
+AT+DPoP (verify the access token, then verify the DPoP proof) with a single
+nested-token validation. The cryptographic cost depends on the algorithms
+chosen and is equivalent to the sum of one AT signature verification and one
+proof signature verification in both approaches; EPOP does not introduce
+additional cryptographic operations relative to AT+DPoP.
+
+Resource servers that implement the early-exit optimization described in
+{{early-exit}} can skip inner-token decoding when the outer EPOP signature
+fails, achieving better average-case performance under adversarial or
+malformed-token conditions.
+
+## Latency and Header Processing {#perf-latency}
+
+Because EPOP is presented as a single `Authorization` header value, resource
+servers process one token per request rather than parsing and validating two
+separate headers (`Authorization: DPoP ...` and `DPoP: <proof>`). This
+reduces per-request HTTP header parsing overhead and simplifies the
+validation state machine on the resource server.
+
+For deployments using token introspection, the reduction from two
+network-visible tokens to one also halves the number of token values the
+resource server must convey to the introspection endpoint per request (when
+full-token introspection is used; see {{introspection-epop}}).
+
+## Deployment Guidance {#perf-guidance}
+
+Implementers should select the EPOP deployment profile that best matches their
+token format:
+
+- **Opaque AT deployments** gain a measurable wire-size reduction (4–9%) and
+  simplified transport with no increase in computational cost. EPOP is the
+  preferred choice.
+- **JWT AT deployments** should weigh the modest size increase (6–14%) against
+  the reduced parsing complexity and unified validation logic. For deployments
+  where header size is a significant constraint (e.g., HTTP/1.1 without
+  compression, constrained-device networks), issuers may consider switching to
+  opaque access tokens or choosing compact proof algorithms (Ed25519 over RSA)
+  to limit overhead.
+- **Algorithm selection** has a larger impact on total token size than the
+  choice between AT+DPoP and EPOP. RSA-based algorithms produce tokens
+  2–3× larger than elliptic-curve equivalents regardless of the token
+  binding mechanism used.
+
 # Security Considerations {#security}
 
 ## Token Lifetime {#sec-token-lifetime}
@@ -1147,3 +1238,5 @@ Owner/Change Controller:
 {:numbered="false"}
 
 The author thanks the OAuth Working Group for their foundational work on DPoP ({{RFC9449}}), PKCE ({{RFC7636}}), and the related specifications that this document extends.
+
+The author thanks Joe DeCock (Duende Software) for observations on token size implications across access token formats and algorithm combinations.
