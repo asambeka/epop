@@ -4,8 +4,8 @@
 
 Web Authorization Protocol                                    A. Ambekar
 Internet-Draft                                                      eBay
-Intended status: Standards Track                             17 May 2026
-Expires: 18 November 2026
+Intended status: Standards Track                             19 May 2026
+Expires: 20 November 2026
 
 
 JSON Web Token (JWT) Profile for OAuth 2.0 Enveloped Proof of Possession
@@ -61,7 +61,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 18 November 2026.
+   This Internet-Draft will expire on 20 November 2026.
 
 Copyright Notice
 
@@ -115,39 +115,44 @@ Table of Contents
      8.2.  AS Metadata Example
      8.3.  RS Metadata Example
    9.  Relationship to Other Specifications
-   10. Security Considerations
-     10.1.  Token Lifetime
-     10.2.  Replay Prevention
-     10.3.  Token Substitution
-     10.4.  Cross-Protocol Replay
-     10.5.  Credential Confidentiality
-     10.6.  Key Rotation Security
-     10.7.  PKCE Requirement
-     10.8.  Authorization Request Key Binding
-     10.9.  Algorithm Selection
-     10.10. Intermediary Transparency
-     10.11. Private Key Protection
-   11. Privacy Considerations
-     11.1.  Credential Visibility in Logs
-     11.2.  Key Identifier as Tracking Vector
-     11.3.  Resource URI Disclosure
-     11.4.  Minimal Disclosure
-   12. IANA Considerations
-     12.1.  HTTP Authentication Scheme Registration
-     12.2.  OAuth Grant Type Registration
-     12.3.  OAuth Parameters Registration
-     12.4.  OAuth Token Type Registration
-     12.5.  OAuth Token Type Identifiers
-     12.6.  OAuth Token Type Hint Registration
-     12.7.  JWT Claims Registration
-     12.8.  JWT Type Registration
-     12.9.  OAuth Authorization Server Metadata
-     12.10. OAuth Protected Resource Metadata
-     12.11. EPOP Request Context Members Registry
-     12.12. SASL Mechanism Registration
-   13. References
-     13.1.  Normative References
-     13.2.  Informative References
+   10. Performance Considerations
+     10.1.  Token Size
+     10.2.  Computational Overhead
+     10.3.  Latency and Header Processing
+     10.4.  Deployment Guidance
+   11. Security Considerations
+     11.1.  Token Lifetime
+     11.2.  Replay Prevention
+     11.3.  Token Substitution
+     11.4.  Cross-Protocol Replay
+     11.5.  Credential Confidentiality
+     11.6.  Key Rotation Security
+     11.7.  PKCE Requirement
+     11.8.  Authorization Request Key Binding
+     11.9.  Algorithm Selection
+     11.10. Intermediary Transparency
+     11.11. Private Key Protection
+   12. Privacy Considerations
+     12.1.  Credential Visibility in Logs
+     12.2.  Key Identifier as Tracking Vector
+     12.3.  Resource URI Disclosure
+     12.4.  Minimal Disclosure
+   13. IANA Considerations
+     13.1.  HTTP Authentication Scheme Registration
+     13.2.  OAuth Grant Type Registration
+     13.3.  OAuth Parameters Registration
+     13.4.  OAuth Token Type Registration
+     13.5.  OAuth Token Type Identifiers
+     13.6.  OAuth Token Type Hint Registration
+     13.7.  JWT Claims Registration
+     13.8.  JWT Type Registration
+     13.9.  OAuth Authorization Server Metadata
+     13.10. OAuth Protected Resource Metadata
+     13.11. EPOP Request Context Members Registry
+     13.12. SASL Mechanism Registration
+   14. References
+     14.1.  Normative References
+     14.2.  Informative References
    Acknowledgments
    Author's Address
 
@@ -291,7 +296,7 @@ Table of Contents
 
    alg  REQUIRED.  Asymmetric signature algorithm.  Edwards curve
       algorithms are RECOMMENDED for their superior security,
-      performance, and payload compactness; see Section 10.9.  Symmetric
+      performance, and payload compactness; see Section 11.9.  Symmetric
       algorithms (HS*) and none MUST NOT be used.
 
    jwk  REQUIRED.  The client's public key as a JWK ([RFC7517]).  MUST
@@ -311,7 +316,7 @@ Table of Contents
 
 3.2.  Payload
 
-   jti  REQUIRED.  Unique JWT ID with high entropy (see Section 10.2).
+   jti  REQUIRED.  Unique JWT ID with high entropy (see Section 11.2).
       Servers MUST maintain a replay cache keyed on jti.
 
    iat  REQUIRED.  Issued-at Unix timestamp.  Servers MUST reject tokens
@@ -338,7 +343,7 @@ Table of Contents
       recognized members MUST be validated by the server.  Unrecognized
       members MUST be ignored.  Future rctx member names will be
       registered in the EPOP Request Context Members registry
-      (Section 12.11).
+      (Section 13.11).
 
    rctx.res  OPTIONAL.  URI or URN of the target resource or endpoint.
 
@@ -738,7 +743,7 @@ Table of Contents
    carries the token being exchanged on behalf of the subject;
    subject_token_type identifies its format.  The actor_token_type
    identifies the EPOP token format using the epop_access_token token
-   type identifier (Section 12.5):
+   type identifier (Section 13.5):
 
    POST /token HTTP/1.1
    Host: as.example.com
@@ -788,7 +793,7 @@ Table of Contents
 
    The AS MUST validate the EPOP envelope per Section 5 before
    processing revocation.  The token_type_hint value MUST be epop_token
-   (Section 12.6).
+   (Section 13.6).
 
    The requirement that the client construct and sign the EPOP envelope
    provides proof-of-possession on revocation: an attacker who captured
@@ -854,7 +859,7 @@ Table of Contents
 
    Binding a public key thumbprint inside the authorization request URL
    (analogous to dpop_jkt in [RFC9449] Section 10) is not supported; see
-   Section 10.8 for the security rationale.
+   Section 11.8 for the security rationale.
 
 6.2.  Resource Server Flows
 
@@ -1332,9 +1337,125 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
 
                                  Table 4
 
-10.  Security Considerations
+10.  Performance Considerations
 
-10.1.  Token Lifetime
+10.1.  Token Size
+
+   EPOP consolidates the access token and the proof of possession into a
+   single token, eliminating the separate DPoP proof header.  The net
+   effect on wire size depends on the access token format in use.
+
+   The table below compares the combined size of an AT+DPoP pair against
+   an EPOP token for representative algorithm combinations, and shows
+   the percentage change (negative = EPOP is smaller; positive = EPOP is
+   larger).  Sizes include the full Base64url-encoded token strings as
+   they would appear on the wire.  The compressed figures approximate
+   HTTP/2 header-compression (Huffman coding) applied to the token
+   value.
+
+   +=========+===========+=========+========+============+============+
+   | AT      | Proof     | AT+DPoP | Raw Δ% |  AT+DPoP / | Compressed |
+   | Format  | Algorithm |  / EPOP |        |       EPOP |         Δ% |
+   |         |           | Raw (B) |        | Compressed |            |
+   |         |           |         |        |        (B) |            |
+   +=========+===========+=========+========+============+============+
+   | Opaque  | Ed25519   |   599 / |  −7.7% |  437 / 398 |      −8.9% |
+   |         |           |     553 |        |            |            |
+   +---------+-----------+---------+--------+------------+------------+
+   | Opaque  | RSA-256   |  1247 / |  −3.7% |  918 / 880 |      −4.1% |
+   |         |           |    1201 |        |            |            |
+   +---------+-----------+---------+--------+------------+------------+
+   | JWT     | Ed25519   |  1030 / |  +9.5% |  745 / 811 |      +8.9% |
+   | Ed25519 |           |    1128 |        |            |            |
+   +---------+-----------+---------+--------+------------+------------+
+   | JWT     | RSA-256   |  1678 / |  +5.8% |     1230 / |      +5.0% |
+   | Ed25519 |           |    1776 |        |       1291 |            |
+   +---------+-----------+---------+--------+------------+------------+
+   | JWT     | Ed25519   |  1288 / | +14.3% | 950 / 1050 |     +10.5% |
+   | RSA-256 |           |    1472 |        |            |            |
+   +---------+-----------+---------+--------+------------+------------+
+   | JWT     | RSA-256   |  1936 / |  +9.5% |     1429 / |      +7.5% |
+   | RSA-256 |           |    2120 |        |       1536 |            |
+   +---------+-----------+---------+--------+------------+------------+
+
+             Table 5: Token size comparison: AT+DPoP vs EPOP
+
+   EPOP is 4–9% smaller than AT+DPoP when the access token is opaque,
+   because eliminating the separate DPoP proof token removes its JOSE
+   header, claims, and signature overhead.  When the access token is a
+   JWT, EPOP is 6–14% larger, as the full AT payload must be re-encoded
+   inside the EPOP envelope; the overhead is highest with RSA keys,
+   where large key material is effectively carried twice.  Header
+   compression (e.g., HPACK in HTTP/2) reduces the gap in all cases but
+   does not reverse the direction of the comparison.
+
+   The absolute size differences in the table (46–184 bytes
+   uncompressed) are small relative to typical HTTP request sizes.  On
+   networks with standard MTUs (1500 bytes) or jumbo frames (9000
+   bytes), these differences are unlikely to cause additional TCP
+   segment fragmentation for most requests.  However, deployments on
+   legacy or constrained networks with smaller effective MTUs, or
+   requests already near the fragmentation boundary due to large URL
+   paths or other headers, may see an additional packet fragment
+   introduced in JWT AT configurations where EPOP is larger.
+   Implementers with strict packet-budget requirements on such networks
+   should prefer opaque access tokens with Ed25519 proofs, which yield
+   the smallest EPOP tokens.
+
+10.2.  Computational Overhead
+
+   EPOP validation replaces the two independent verification steps
+   required for AT+DPoP (verify the access token, then verify the DPoP
+   proof) with a single nested-token validation.  The cryptographic cost
+   depends on the algorithms chosen and is equivalent to the sum of one
+   AT signature verification and one proof signature verification in
+   both approaches; EPOP does not introduce additional cryptographic
+   operations relative to AT+DPoP.
+
+   Resource servers that implement the early-exit optimization described
+   in Section 6.2.5.2 can skip inner-token decoding when the outer EPOP
+   signature fails, achieving better average-case performance under
+   adversarial or malformed-token conditions.
+
+10.3.  Latency and Header Processing
+
+   Because EPOP is presented as a single Authorization header value,
+   resource servers process one token per request rather than parsing
+   and validating two separate headers (Authorization: DPoP ... and
+   DPoP: <proof>).  This reduces per-request HTTP header parsing
+   overhead and simplifies the validation state machine on the resource
+   server.
+
+   For deployments using token introspection, the reduction from two
+   network-visible tokens to one also halves the number of token values
+   the resource server must convey to the introspection endpoint per
+   request (when full-token introspection is used; see Section 6.1.4.2).
+
+10.4.  Deployment Guidance
+
+   Implementers should select the EPOP deployment profile that best
+   matches their token format:
+
+   *  *Opaque AT deployments* gain a measurable wire-size reduction
+      (4–9%) and simplified transport with no increase in computational
+      cost.  EPOP is the preferred choice.
+
+   *  *JWT AT deployments* should weigh the modest size increase (6–14%)
+      against the reduced parsing complexity and unified validation
+      logic.  For deployments where header size is a significant
+      constraint (e.g., HTTP/1.1 without compression, constrained-device
+      networks), issuers may consider switching to opaque access tokens
+      or choosing compact proof algorithms (Ed25519 over RSA) to limit
+      overhead.
+
+   *  *Algorithm selection* has a larger impact on total token size than
+      the choice between AT+DPoP and EPOP.  RSA-based algorithms produce
+      tokens 2–3× larger than elliptic-curve equivalents regardless of
+      the token binding mechanism used.
+
+11.  Security Considerations
+
+11.1.  Token Lifetime
 
    EPOP tokens MUST be short-lived, per-request credentials.  The server
    defines the maximum acceptable age of the iat claim; when cnonce is
@@ -1343,7 +1464,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    limit the window during which a captured token remains usable and
    reduce the cost of maintaining the jti replay cache.
 
-10.2.  Replay Prevention
+11.2.  Replay Prevention
 
    Each EPOP token MUST include a jti value of at least 128 bits of
    entropy (e.g., a UUID v4 or CSPRNG-generated value) to make
@@ -1353,7 +1474,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    rejected.  When cnonce is also required, the time-step window narrows
    the effective validity period further but does not replace the cache.
 
-10.3.  Token Substitution
+11.3.  Token Substitution
 
    The key binding check — sha256(outer jwk) == cnf.jkt from the nested
    credential — is the primary defense against token substitution.  An
@@ -1369,7 +1490,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    could cause the RS to validate a post-rotation request against the
    pre-rotation key.
 
-10.4.  Cross-Protocol Replay
+11.4.  Cross-Protocol Replay
 
    Without rctx validation, an EPOP token captured from one protocol or
    endpoint could be replayed at another within the token's validity
@@ -1377,7 +1498,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    claims are present.  Clients SHOULD always include rctx to maximize
    replay resistance.
 
-10.5.  Credential Confidentiality
+11.5.  Credential Confidentiality
 
    The ntk claim embeds the full OAuth 2.0 credential inside the EPOP
    envelope.  Unlike bearer token flows where only the token value is
@@ -1389,7 +1510,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    token values in plaintext; the jti claim SHOULD be used as the audit
    correlation identifier instead.
 
-10.6.  Key Rotation Security
+11.6.  Key Rotation Security
 
    The AS MUST validate both the outer and inner EPOP envelopes
    completely before issuing new tokens or updating key bindings.
@@ -1397,7 +1518,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    refresh token to inject a new key by constructing a valid outer
    envelope while providing an invalid inner envelope.
 
-10.7.  PKCE Requirement
+11.7.  PKCE Requirement
 
    PKCE ([RFC7636]) is REQUIRED in all EPOP authorization code flows.
    Without PKCE, an attacker who intercepts the authorization code can
@@ -1406,7 +1527,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    protect complementary surfaces: PKCE binds the authorization request
    to the token request; EPOP binds the code to the client's key pair.
 
-10.8.  Authorization Request Key Binding
+11.8.  Authorization Request Key Binding
 
    Binding a public key thumbprint inside the authorization request URL
    (as defined for DPoP in [RFC9449] Section 10) is not supported by
@@ -1417,7 +1538,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    directly with the AS over TLS: the token endpoint and, optionally,
    the PAR endpoint (Section 6.1.7).
 
-10.9.  Algorithm Selection
+11.9.  Algorithm Selection
 
    EPOP tokens are generated per-request at high frequency; algorithm
    choice directly affects signing latency, token size, and security
@@ -1431,7 +1552,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    SHOULD NOT be used in new implementations.  Implementations MUST
    follow [RFC8725].
 
-10.10.  Intermediary Transparency
+11.10.  Intermediary Transparency
 
    Because the EPOP proof is embedded within the token rather than
    transmitted as a separate header, EPOP tokens are transparent to
@@ -1444,7 +1565,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    replaced by an intermediary; the full compact-serialized EPOP token
    MUST be forwarded unchanged.
 
-10.11.  Private Key Protection
+11.11.  Private Key Protection
 
    The security of EPOP depends entirely on the client's private key
    remaining secret.  Private key material MUST never be logged,
@@ -1470,9 +1591,9 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    as the signer, making independent third-party verification impossible
    and introducing shared-secret distribution risk.
 
-11.  Privacy Considerations
+12.  Privacy Considerations
 
-11.1.  Credential Visibility in Logs
+12.1.  Credential Visibility in Logs
 
    Because the ntk claim embeds the full OAuth 2.0 credential, an EPOP
    token is more privacy-sensitive than a typical bearer token: its
@@ -1480,9 +1601,9 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    and scope to any party that receives or stores it.  Servers SHOULD
    apply data-minimization practices to audit logs — retaining only the
    jti and iat claims rather than the full token value.  See
-   Section 10.5 for the normative logging and TLS requirements.
+   Section 11.5 for the normative logging and TLS requirements.
 
-11.2.  Key Identifier as Tracking Vector
+12.2.  Key Identifier as Tracking Vector
 
    The cnf.jkt claim is a stable, long-lived public key thumbprint.  If
    the same key pair is used across multiple authorization server or
@@ -1492,7 +1613,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    rotation (Section 6.1.3.2) provides a mechanism for periodic key
    refresh independent of active sessions.
 
-11.3.  Resource URI Disclosure
+12.3.  Resource URI Disclosure
 
    The rctx.res field encodes the target resource URI or URN and is part
    of the signed EPOP envelope, visible to any party that receives or
@@ -1501,7 +1622,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    identifiers that encode sensitive information (e.g., user identifiers
    embedded in path parameters) SHOULD be avoided in rctx.res.
 
-11.4.  Minimal Disclosure
+12.4.  Minimal Disclosure
 
    This profile does not require the EPOP envelope to carry user
    identity claims.  User identity information belongs in the nested
@@ -1509,9 +1630,9 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    MUST NOT add user identity claims to the EPOP token header or payload
    unless required by a specific profile extension.
 
-12.  IANA Considerations
+13.  IANA Considerations
 
-12.1.  HTTP Authentication Scheme Registration
+13.1.  HTTP Authentication Scheme Registration
 
    This specification requests registration of the following entry in
    the "Hypertext Transfer Protocol (HTTP) Authentication Scheme
@@ -1522,7 +1643,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    Pointer to specification text:  Section 6.2.1 and Section 3 of this
       document.
 
-12.2.  OAuth Grant Type Registration
+13.2.  OAuth Grant Type Registration
 
    This specification requests registration of the following entries in
    the "OAuth Parameters" registry (grant type sub-table) established by
@@ -1540,7 +1661,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
 
    Specification Document(s):  Section 6.1.3 of this document
 
-12.3.  OAuth Parameters Registration
+13.3.  OAuth Parameters Registration
 
    This specification requests registration of the following entry in
    the "OAuth Parameters" registry established by [RFC6749]
@@ -1556,7 +1677,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    Specification Document(s):  Section 4, Section 6.1.2, Section 6.1.3,
       and Section 6.1.7 of this document
 
-12.4.  OAuth Token Type Registration
+13.4.  OAuth Token Type Registration
 
    This specification requests registration of the following value in
    the "OAuth Access Token Types" registry established by [RFC6749]
@@ -1573,7 +1694,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    Specification Document(s):  Section 4 and Section 6.2.1 of this
       document
 
-12.5.  OAuth Token Type Identifiers
+13.5.  OAuth Token Type Identifiers
 
    This specification requests registration of the following entries in
    the "OAuth URI" subregistry of the "OAuth Parameters" registry
@@ -1591,7 +1712,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
 
    Specification Document(s):  Section 6.1.5 of this document
 
-12.6.  OAuth Token Type Hint Registration
+13.6.  OAuth Token Type Hint Registration
 
    This specification requests registration of the following value in
    the "OAuth Token Type Hints" registry established by [RFC7009]
@@ -1604,7 +1725,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    Specification Document(s):  Section 6.1.4, Section 6.1.6, and
       Section 6.2.5.3 of this document
 
-12.7.  JWT Claims Registration
+13.7.  JWT Claims Registration
 
    This specification requests registration of the following JWT claims
    in the "JSON Web Token Claims" registry established by [RFC7519]:
@@ -1631,7 +1752,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
 
       Specification Document(s): Section 7 of this document
 
-12.8.  JWT Type Registration
+13.8.  JWT Type Registration
 
    This specification requests registration of the following typ header
    parameter value in the "JSON Web Signature and Encryption Header
@@ -1644,7 +1765,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
 
       Specification Document(s): Section 3.1 of this document
 
-12.9.  OAuth Authorization Server Metadata
+13.9.  OAuth Authorization Server Metadata
 
    This specification requests registration of the following names in
    the "OAuth Authorization Server Metadata" registry ([RFC8414]):
@@ -1663,7 +1784,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
 
    *  epop_cnonce_required
 
-12.10.  OAuth Protected Resource Metadata
+13.10.  OAuth Protected Resource Metadata
 
    This specification requests registration of the following names in
    the "OAuth Protected Resource Metadata" registry ([RFC9728]):
@@ -1680,7 +1801,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
 
    *  epop_cnonce_required
 
-12.11.  EPOP Request Context Members Registry
+13.11.  EPOP Request Context Members Registry
 
    This specification requests creation of a new registry, "EPOP Request
    Context Members", under the "OAuth Parameters" registry group.  The
@@ -1701,9 +1822,9 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    |             |        | correlation ID           | this document  |
    +-------------+--------+--------------------------+----------------+
 
-                                 Table 5
+                                 Table 6
 
-12.12.  SASL Mechanism Registration
+13.12.  SASL Mechanism Registration
 
    This specification requests registration of the following entry in
    the "SASL Mechanisms" registry established by [RFC4422]:
@@ -1718,9 +1839,9 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
 
    Owner/Change Controller:  IETF
 
-13.  References
+14.  References
 
-13.1.  Normative References
+14.1.  Normative References
 
    [RFC2104]  Krawczyk, H., Bellare, M., and R. Canetti, "HMAC: Keyed-
               Hashing for Message Authentication", RFC 2104,
@@ -1833,7 +1954,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
               DOI 10.17487/RFC9728, April 2025,
               <https://www.rfc-editor.org/rfc/rfc9728>.
 
-13.2.  Informative References
+14.2.  Informative References
 
    [RFC8126]  Cotton, M., Leiba, B., and T. Narten, "Guidelines for
               Writing an IANA Considerations Section in RFCs", BCP 26,
@@ -1850,6 +1971,10 @@ Acknowledgments
    The author thanks the OAuth Working Group for their foundational work
    on DPoP ([RFC9449]), PKCE ([RFC7636]), and the related specifications
    that this document extends.
+
+   The author thanks Joe DeCock (Duende Software) for observations on
+   token size implications across access token formats and algorithm
+   combinations.
 
 Author's Address
 
