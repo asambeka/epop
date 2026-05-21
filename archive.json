@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2026-05-19T04:17:52.338919+00:00",
+  "timestamp": "2026-05-21T04:26:35.784763+00:00",
   "repo": "asambeka/epop",
   "labels": [
     {
@@ -49,6 +49,23 @@
       "color": "ffffff"
     }
   ],
-  "issues": [],
+  "issues": [
+    {
+      "number": 1,
+      "id": "I_kwDOSSvEOc8AAAABCwSsYw",
+      "title": "Add performance and token size analysis",
+      "url": "https://github.com/asambeka/epop/issues/1",
+      "state": "CLOSED",
+      "author": "asambeka",
+      "authorAssociation": "OWNER",
+      "assignees": [],
+      "labels": [],
+      "body": "Joe DeCock on IETF WG forum brought up the topic of Token size and impact. We need section to cover performance implications of EPOP.",
+      "createdAt": "2026-05-19T18:06:18Z",
+      "updatedAt": "2026-05-19T18:09:35Z",
+      "closedAt": "2026-05-19T18:09:35Z",
+      "comments": []
+    }
+  ],
   "pulls": []
 }
