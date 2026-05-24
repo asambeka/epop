@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2026-05-21T04:26:35.784763+00:00",
+  "timestamp": "2026-05-24T04:20:07.400108+00:00",
   "repo": "asambeka/epop",
   "labels": [
     {
@@ -65,6 +65,130 @@
       "updatedAt": "2026-05-19T18:09:35Z",
       "closedAt": "2026-05-19T18:09:35Z",
       "comments": []
+    },
+    {
+      "number": 2,
+      "id": "I_kwDOSSvEOc8AAAABDAVeGA",
+      "title": "Client Nonce (cnonce) scheme does not provide proof of possession",
+      "url": "https://github.com/asambeka/epop/issues/2",
+      "state": "OPEN",
+      "author": "will-bartlett",
+      "authorAssociation": "NONE",
+      "assignees": [],
+      "labels": [],
+      "body": "Seems like some context was lost from the DPoP conversation. The basic problem with a client-generated nonce is that the nonces can be pre-generated. For example, malware that exploits an XSS vulnerability on a DPoP/EPoP enabled mail client can use the application's key to generate a mail read request for every five minute window until the end of time.\n\nThe goal of proof of possession is to give the resource server assurance that the client actually holds the corresponding private key. A client generated nonce scheme does not achieve this goal. Client generated nonces prove only that the client hold the corresponding private key at some point in the past. This (\"proof of onetime possession\") is a weaker security property than \"proof of possession.\" The only ways I know of to provide the stronger security property is with a server nonce - that nonce either contains a signed timestamp or a unique request hash - which the client cannot pre-generate.",
+      "createdAt": "2026-05-21T17:29:28Z",
+      "updatedAt": "2026-05-22T02:04:18Z",
+      "closedAt": null,
+      "comments": [
+        {
+          "author": "asambeka",
+          "authorAssociation": "OWNER",
+          "body": "Hi @will-bartlett ,\nThanks for feedback and issue. Really appreciate you taking time and explaining the context.\nThere was similar question from Joe DeCock, which I responded : https://mailarchive.ietf.org/arch/msg/oauth/lZv3uPB6IHD334usPZRGQuVciRQ/\n\nBasically the cnonce do not provide the protection for pre-generation. And I do agree that nonce make sense for non-confidential clients. Here is what was considered for cnonce:\n1) Can we rotate keys faster to avoid key related attacks e.g. pre-generation\n2) Can AS/RS send nonce to all clients? e.g. Kafka and other protocols\n3) Is it easy to have state management for nonce in the a distributed AS/RS deployment?\n\nI am open to suggestions and collaboration on this. I dont have any objections to nonce being retained except for the fact that cnonce will sill be needed for clients that can't support nonce.\n\nLet me know your thoughts.\n",
+          "createdAt": "2026-05-22T00:58:32Z",
+          "updatedAt": "2026-05-22T00:58:32Z"
+        },
+        {
+          "author": "will-bartlett",
+          "authorAssociation": "NONE",
+          "body": "Maybe beyond the scope of this issue but... I have limited interest in EPoP other than the generalization to non-HTTP transport. When I compare the choices made in EPoP to the choices we made in DPoP - I like the DPoP choices better. From using a separate header to dpop jtk to nonce to key rotation. And I think it's hard enough to get people to adopt PoP without providing a giant menu of options.\n\nMy north star is OAuth defines three PoP patterns - signing (DPoP), transport (mTLS), and encryption*. I think having two competing standards for PoP based in signing is too much complexity for such a small feature area.\n\n*For encryption, I would like to standardize a version of [MS-OAPXBC's encryption](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-oapxbc/4aa652c8-a705-4319-a2ab-323e770d075a), which is more or less tunneling existing protocols through a layer of encryption. This scheme also has the advantage of not requiring a server nonce, though tunneling has its own disadvantages, particularly when it's applied generically and not just to html forms / json based protocols like OAuth.",
+          "createdAt": "2026-05-22T02:01:40Z",
+          "updatedAt": "2026-05-22T02:01:40Z"
+        },
+        {
+          "author": "will-bartlett",
+          "authorAssociation": "NONE",
+          "body": "So I terms of suggestions: my suggestion would be to make the minimal possible deviations from DPoP possible to work with non-HTTP transports.",
+          "createdAt": "2026-05-22T02:04:18Z",
+          "updatedAt": "2026-05-22T02:04:18Z"
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "id": "I_kwDOSSvEOc8AAAABDAWpgQ",
+      "title": "(Unattested) key rotation is an anti-feature",
+      "url": "https://github.com/asambeka/epop/issues/3",
+      "state": "OPEN",
+      "author": "will-bartlett",
+      "authorAssociation": "NONE",
+      "assignees": [],
+      "labels": [],
+      "body": "Another lesson from dpop - just what the title says. Key rotation is frequently used by attackers to \"rebind\" from a legitimate (customer-controlled) key to an illegitimate (attacker-controlled) key. Without a mitigating control (such as hardware based attestation that the two keys live in the same enclave), rebinding reduces rather than increases the security of proof of possession schemes. DPoP choose to forbid rebinding and directed clients to return to the OAuth provider for key rotations, which I continue to feel is appropriate.",
+      "createdAt": "2026-05-21T17:32:27Z",
+      "updatedAt": "2026-05-22T21:59:33Z",
+      "closedAt": null,
+      "comments": [
+        {
+          "author": "asambeka",
+          "authorAssociation": "OWNER",
+          "body": "Safe keeping of cryptographic keys is always a requirement for the holder of the key, e.g. TLS server or clients doing mTLS. This a not a new requirement, and like TLS it is a best practice to follow. I dont agree that because key can  be compromised, it should not be rotation. On the other hand not rotating key increases the likelihood of key compromise. \nThe rotation also requires more than just a compromised old key \u2014 the attacker needs the old private key AND a valid refresh token AND client credentials AND the AS must accept the rotation with full envelope validation. A network attacker holding only a stolen refresh token cannot rebind. ",
+          "createdAt": "2026-05-22T21:32:18Z",
+          "updatedAt": "2026-05-22T21:32:18Z"
+        },
+        {
+          "author": "will-bartlett",
+          "authorAssociation": "NONE",
+          "body": "I'm not finding the extended discussion about key rotation from dpop, but some brief references here. https://github.com/danielfett/draft-dpop/issues/40. \n\n> like TLS\n\nTLS is different because the keys are signed by a CA. The client has a independent signal (other than the old key) that leads them to trust the new key. Rather than the new key being chained to the old key, old and new keys are chained to a secure root. Doing the same for token binding is an option, but requires more specification, as I said (\"such as hardware based attestation that the two keys live in the same enclave\"). I have an interest in specifying how enclaves and attestation works with JWKs, but haven't found the time to write or submit a draft.\n\n> I dont agree that because key can be compromised, it should not be rotation.\n\nThat's not really what I said. I said \"DPoP [...] directed clients to return to the OAuth provider for key rotations.\" A client can obtain a new RT representing a new session bound to a new key (i.e. rotation) via the authorization code flow. The advantage of this scheme is that it prevents silent theft - malware can't simply export a session (RT+key), it needs to start a new session, which may require interaction (consent for offline access) and may be possible to revoke granularly. \n\nI'm also ok with supporting silent key rotation - but it has to be secure. My experience in real world cases is that rotating keys without a root of trust by simply chaining the new key to the old key provides more opportunities to attackers than benefits to legitimate users. Because legitimate users are using a specific piece of concrete hardware (such as a mobile phone), the legitimate users ability to protect keys usually does not vary over the lifetime of the device - the new key is protected exactly the same way as the old key. That calculus can be changed by permitting key rotation only to other keys within the same (hardware) root - this maintains the benefits to legitimate users while eliminating the opportunities for attackers.\n\n> AND client credentials\n\nI don't see that requirement in the spec. The spec seems to define a method (like DPoP) that works for public clients which don't have registered client credentials. Have I misread?\n\n> AND the AS must accept the rotation with full envelope validation\n\nWhich is trivial to produce with the key - the AS just follows the validation steps.\n\nSo, for a public client, it ends up being just the key and refresh token.",
+          "createdAt": "2026-05-22T21:59:33Z",
+          "updatedAt": "2026-05-22T21:59:33Z"
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "id": "I_kwDOSSvEOc8AAAABDAaIYA",
+      "title": "Removal of dpop_jtk and reduction in security properties is not explained accurately",
+      "url": "https://github.com/asambeka/epop/issues/4",
+      "state": "OPEN",
+      "author": "will-bartlett",
+      "authorAssociation": "NONE",
+      "assignees": [],
+      "labels": [],
+      "body": "Spec seems to misunderstand the purpose of dpop_jtk and provides a bogus explanation for removing it. Without dpop_jtk, the auth session is first bound to code_verifier and then rebound to the dpop key. With dpop_jtk, the auth session is first bound to both code_verifier and the dpop key, and then the code_verifier binding is removed. This (with dpop_jtk) is a stronger binding, because it rules out certain attacks on auth codes and PKCE.\n\nAn example of such an attack is related to authorization codes being one time use. In practice, in distributed system, one time use is technically complex and often implemented as an imperfect best effort protection. Databases that store already used token ids are replicated and experience faults. Many identity providers choose to prioritize availability over consistency ([CAP](https://en.wikipedia.org/wiki/CAP_theorem)) when faults occur.\n\nUsing dpop_jtk mitigates this issue. Even when faults erodes the promise of one-time usage, dpop_jtk ensures that the resulting tokens (refresh/access) are controlled by the customer key and cannot be rebound to an attacker key on an authorization code replay.\n\nThe spec says:\n\n> Authorization requests travel through the browser redirect \u2014 an untrusted channel where a parameter can be silently replaced before the AS sees it\n\nBut this is not germane - the same reasoning would apply to PKCE, which the spec mandates rather than removing. ",
+      "createdAt": "2026-05-21T17:41:56Z",
+      "updatedAt": "2026-05-22T20:21:47Z",
+      "closedAt": null,
+      "comments": [
+        {
+          "author": "asambeka",
+          "authorAssociation": "OWNER",
+          "body": "Hi @will-bartlett \nThank you for the thorough review. I think my point is still valid.\nI'd like to address the key points:\n\n1. When dpop_jkt is conveyed as a query parameter in the /authorize redirect, it traverses the browser \u2014 making it susceptible to injection, substitution, or removal by a rogue entity (e.g., a malicious browser extension). A substitution attack in particular could allow an attacker to bind the resulting token to a key they control, or remove jtk parameter, skipping the key binding process completely (effectively bypassing DPoP). the dpop_jkt does not help here, either token is bound to rouge key (substitution attack) or not bound to any key (removal attack).\n2. If you read `Note that the dpop_jkt authorization request parameter MAY also be used in combination with Proof Key for Code Exchange (PKCE) [[RFC7636](https://datatracker.ietf.org/doc/html/rfc7636)]`, under section 10 in RFC 9449. PKCE is optional, so no code_challege is sent.\n3. Even if PKCE is present, it only ensures browser can't make a token call with authorization code. In fact PKCE is also susceptible to same downgrade attack see here: https://medium.com/@instatunnel/pkce-downgrade-attacks-why-oauth-2-1-is-no-longer-optional-887731326f24\n\nSo based on 2) above `With dpop_jtk, the auth session is first bound to both code_verifier and the dpop key, and then the code_verifier binding is removed. This (with dpop_jtk) is a stronger binding, because it rules out certain attacks on auth codes and PKCE` is not accurate assessment. There is no specific call out in RFC stating any other cross binding to PKCE to other mechanisms. It is exploitable if paramete/ rmechanism is optional (which in this case is).\nBTW I have already reported this exploit to IETF and is under review. I am in process of working with different vendors on this potential down grade attack.\n\nLet me know what do you think.",
+          "createdAt": "2026-05-22T17:32:59Z",
+          "updatedAt": "2026-05-22T17:32:59Z"
+        },
+        {
+          "author": "will-bartlett",
+          "authorAssociation": "NONE",
+          "body": "Yeah, the pkce downgrade attack is well understood, mitigated in the BCP (RFC 9700). The identity provider I work on (Microsoft Entra) implemented the mitigations in RFC 9700 around maybe 2019 or so, IIRC. \n\n1 - PKCE and dpop_jkt are actually quite similar. We discussed modeling dpop_jkt as a PKCE method (i.e. code_challenge_method=dpop&code_challenge=thumbprint) but ultimately concluded dpop_jkt was simpler to explain. PKCE and DPoP are similar in that both patterns have a hashed value presented on authorize (code_challenge/dpop_jkt) and the unhashed form of the same value presented on token (code_verifier/dpop). This scheme prevents replacement by the browser - if the browser replaces, the authorization code redemption on token fails, because the values do not match. Removal by the browser is possible, but this is mitigated by RFC 9700 for PKCE, and minimal impact for DPoP, because DPoP supports late binding on the token endpoint. So, rather than removal resulting in unbound and replacement resulting in wrong key, removal results in binding happening one step later (RT+AT instead of RT+AT+AC), and replacement results in an error (dpop and dpop_jkt don't match - invalid_grant).\n\n2 - RFC 9700 says public clients MUST and confidential clients SHOULD use PKCE in 2.1.1. So clients that implement both RFC 9700 and RFC 9449 will use both code_challenge and dpop_jkt.\n\n>> With dpop_jtk, the auth session is first bound to both code_verifier and the dpop key, and then the code_verifier binding is removed. This (with dpop_jtk) is a stronger binding, because it rules out certain attacks on auth codes and PKCE\n\n> is not accurate assessment.\n\nMy intention was to describe the behavior of clients who follow the recommendations of RFC 9700. I believe my assessment **is accurate** for such clients. It's true that these are just recommendations, but using PoP at all is also just a recommendation. In order to analyze the OAuth ecosystem, you sort of have to assume clients follow recommendations, not just minimum requirements. I'm broadly supportive of the OAuth 2.1 effort, which intends to elevate some of those recommendations everybody should follow to requirements. ",
+          "createdAt": "2026-05-22T20:20:13Z",
+          "updatedAt": "2026-05-22T20:21:47Z"
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "id": "I_kwDOSSvEOc8AAAABDAcDwg",
+      "title": "Making all members of request context object optional makes security optional",
+      "url": "https://github.com/asambeka/epop/issues/5",
+      "state": "OPEN",
+      "author": "will-bartlett",
+      "authorAssociation": "NONE",
+      "assignees": [],
+      "labels": [],
+      "body": "The spec says about `rctx`:\n\n> Request context object. When present, all recognized members MUST be validated by the server. Unrecognized members MUST be ignored.\n\nIt then proceeds to define a handful of members (`res`, `method`, `id`) and makes them all optional. This repeats a mistake from [SHR](https://datatracker.ietf.org/doc/html/[draft-ietf-oauth-signed-http-request-03](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-signed-http-request-03)) that DPoP fixed. SHR made most of the binding parameters optional, which led implementors to be unable to rely on its security characteristics, which led to low adoption. DPoP fixed the problem with SHR by making a minimal set of parameters mandatory - allowing implementors to be clear on what security properties they were getting - leading to better adoption.",
+      "createdAt": "2026-05-21T17:47:19Z",
+      "updatedAt": "2026-05-22T01:05:24Z",
+      "closedAt": null,
+      "comments": [
+        {
+          "author": "asambeka",
+          "authorAssociation": "OWNER",
+          "body": "That is a good suggestion. Will incorporate.\n",
+          "createdAt": "2026-05-22T01:05:23Z",
+          "updatedAt": "2026-05-22T01:05:23Z"
+        }
+      ]
     }
   ],
   "pulls": []
