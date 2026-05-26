@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2026-05-24T04:20:07.400108+00:00",
+  "timestamp": "2026-05-26T04:17:22.857310+00:00",
   "repo": "asambeka/epop",
   "labels": [
     {
@@ -78,7 +78,7 @@
       "labels": [],
       "body": "Seems like some context was lost from the DPoP conversation. The basic problem with a client-generated nonce is that the nonces can be pre-generated. For example, malware that exploits an XSS vulnerability on a DPoP/EPoP enabled mail client can use the application's key to generate a mail read request for every five minute window until the end of time.\n\nThe goal of proof of possession is to give the resource server assurance that the client actually holds the corresponding private key. A client generated nonce scheme does not achieve this goal. Client generated nonces prove only that the client hold the corresponding private key at some point in the past. This (\"proof of onetime possession\") is a weaker security property than \"proof of possession.\" The only ways I know of to provide the stronger security property is with a server nonce - that nonce either contains a signed timestamp or a unique request hash - which the client cannot pre-generate.",
       "createdAt": "2026-05-21T17:29:28Z",
-      "updatedAt": "2026-05-22T02:04:18Z",
+      "updatedAt": "2026-05-25T19:02:54Z",
       "closedAt": null,
       "comments": [
         {
@@ -101,6 +101,13 @@
           "body": "So I terms of suggestions: my suggestion would be to make the minimal possible deviations from DPoP possible to work with non-HTTP transports.",
           "createdAt": "2026-05-22T02:04:18Z",
           "updatedAt": "2026-05-22T02:04:18Z"
+        },
+        {
+          "author": "asambeka",
+          "authorAssociation": "OWNER",
+          "body": "Thanks @will-bartlett , we can look at this from following perspectives:\n\n1) I'm open to keeping `cnonce` as optional and detailed implementation out of scope of this RFC, while retaining nonce if server can provide one (e..g in http, although I feel it is not practical, but open to retaining it). Details on cnonce may be a separate RFC.\n2) I feel supporting a epop JWT type has advantages beyond OAuth e.g. Service to service, integration with Service Mesh, Istio/SPIFFE, Entra  GQL for EP/Host identity (this is where we have used EPOP+Entra at scale), and IoT where we are discussing this for potential use at a large retail (expecting more authors).\n3) I feel EPOP is foundational capability for AI scenarios as OBO becomes more and more prominent, integration with Istio is what I am looking to solve.\n\nI'll read about MS-OAPXBC.\n\nLet me know. \nBTW I really appreciate you taking time and helping on this. I'd love to have you as co-author, but if that is not okay with you, would like to include you in acknowledgments. ",
+          "createdAt": "2026-05-25T19:02:54Z",
+          "updatedAt": "2026-05-25T19:02:54Z"
         }
       ]
     },
