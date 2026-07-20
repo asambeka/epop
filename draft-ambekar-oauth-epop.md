@@ -41,6 +41,7 @@ normative:
   RFC4648:
   RFC5801:
   RFC5869:
+  RFC6838:
   RFC6749:
   RFC7009:
   RFC7235:
@@ -61,6 +62,7 @@ normative:
 informative:
   RFC8126:
   RFC8792:
+  RFC9068:
   RFC9901:
 
 ...
