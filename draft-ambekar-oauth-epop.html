@@ -7,9 +7,9 @@
 <title>JSON Web Token (JWT) Profile for OAuth 2.0 Enveloped Proof of Possession (EPOP)</title>
 <meta content="Ashwin Ambekar" name="author">
 <meta content="
-       This specification defines a profile for OAuth 2.0 sender-constrained credentials in which authorization codes, access tokens, and refresh tokens are cryptographically bound to the client's private key as a single inseparable envelope. The profile extends sender-constraining beyond HTTP to non-HTTP transports including MQTT, Kafka, the Model Context Protocol (MCP), gRPC, and SASL-based protocols such as those defined in  . It introduces atomic proof-of-possession key rotation, enabling clients to rotate key pairs without disrupting active sessions, and an offline-derived client nonce ( cnonce ) that eliminates the server-issued nonce round-trip required by existing mechanisms — enabling stateless proof validation critical for non-HTTP and high-throughput deployments. Authorization servers, resource servers, and clients from different vendors can implement this profile interoperably. 
+       This specification defines a profile for OAuth 2.0 sender-constrained credentials in which authorization codes, access tokens, and refresh tokens are cryptographically bound to the client's private key as a single inseparable envelope. Unlike existing mechanisms, EPOP provides proof-of-possession uniformly across both JWT and opaque access tokens, and across HTTP and non-HTTP transports. The profile extends sender-constraining beyond HTTP to non-HTTP transports including MQTT, Kafka, the Model Context Protocol (MCP), gRPC, and SASL-based protocols such as those defined in  . It introduces atomic proof-of-possession key rotation, enabling clients to rotate key pairs without disrupting active sessions, and an offline-derived client nonce ( cnonce ) that eliminates the server-issued nonce round-trip required by existing mechanisms — enabling stateless proof validation critical for non-HTTP and high-throughput deployments. Authorization servers, resource servers, and clients from different vendors can implement this profile interoperably. 
     " name="description">
-<meta content="xml2rfc 3.33.0" name="generator">
+<meta content="xml2rfc 3.34.0" name="generator">
 <meta content="EPOP" name="keyword">
 <meta content="oauth" name="keyword">
 <meta content="proof-of-possession" name="keyword">
@@ -19,18 +19,19 @@
 <meta content="token profile" name="keyword">
 <meta content="draft-ambekar-oauth-epop-latest" name="ietf.draft">
 <!-- Generator version information:
-  xml2rfc 3.33.0
-    Python 3.12.13
-    ConfigArgParse 1.7
+  xml2rfc 3.34.0
+    Python 3.14.5
+    ConfigArgParse 1.7.5
     google-i18n-address 3.1.1
     intervaltree 3.2.1
     Jinja2 3.1.6
-    lxml 6.0.2
-    platformdirs 4.9.6
+    lxml 6.1.1
+    natsort 8.4.0
+    platformdirs 4.10.1
     pycountry 24.6.1
     PyYAML 6.0.3
     requests 2.33.1
-    wcwidth 0.7.0
+    wcwidth 0.8.2
 -->
 <link href="draft-ambekar-oauth-epop.xml" rel="alternate" type="application/rfc+xml">
 <link href="#copyright" rel="license">
@@ -297,16 +298,19 @@ h1, h2, h3, h4, h5, h6 {
   font-size-adjust: 0.5;
   color: var(--title-color);
 }
-h1#title {
-  font-size: 32px;
-  line-height: 40px;
-  clear: both;
-}
-h1#title, h1#rfcnum {
-  margin: 1.5em 0 0.2em;
-}
-h1#rfcnum + h1#title {
-  margin: 0.2em 0;
+h1 {
+  &#title {
+    font-size: 32px;
+    line-height: 40px;
+    clear: both;
+    margin: 1.5em 0 0.2em;
+  }
+  &#rfcnum {
+    margin: 1.5em 0 0.2em;
+    & + h1#title {
+      margin: 0.2em 0;
+    }
+  }
 }
 
 h1, h2, h3 {
@@ -326,10 +330,10 @@ h4, h5, h6 {
 #abstract+p {
   font-size: 18px;
   line-height: 24px;
-}
-#abstract+p code, #abstract+p samp, #abstract+p tt {
-  font-size: 16px;
-  line-height: 0;
+  & code, & samp, & tt {
+    font-size: 16px;
+    line-height: 0;
+  }
 }
 
 p {
@@ -340,59 +344,59 @@ p {
 div {
   margin: 0;
 }
-.alignRight.art-text {
-  background-color: var(--highlight-color);
-  border: 1px solid var(--line-color);
-  border-radius: 3px;
-  padding: 0.5em 1em 0;
-  margin-bottom: 0.5em;
-}
-.alignRight.art-text pre {
-  padding: 0;
-  width: auto;
-}
 .alignRight {
   margin: 1em 0;
-}
-.alignRight > *:first-child {
-  border: none;
-  margin: 0;
-  float: right;
-  clear: both;
-}
-.alignRight > *:nth-child(2) {
-  clear: both;
-  display: block;
-  border: none;
+  &.art-text {
+    background-color: var(--highlight-color);
+    border: 1px solid var(--line-color);
+    border-radius: 3px;
+    padding: 0.5em 1em 0;
+    margin-bottom: 0.5em;
+    & pre {
+      padding: 0;
+      width: auto;
+    }
+  }
+  & > *:first-child {
+    border: none;
+    margin: 0;
+    float: right;
+    clear: both;
+  }
+  & > *:nth-child(2) {
+    clear: both;
+    display: block;
+    border: none;
+  }
 }
 svg {
   display: block;
-}
-/* font-family isn't space-separated, but =~ will have to do */
-svg[font-family~="monospace" i], svg [font-family~="monospace" i] {
-  font-family: var(--font-mono);
-}
-.alignCenter.art-text {
-  background-color: var(--highlight-color);
-  border: 1px solid var(--line-color);
-  border-radius: 3px;
-  padding: 0.5em 1em 0;
-  margin-bottom: 0.5em;
-}
-.alignCenter.art-text pre {
-  padding: 0;
-  width: auto;
+  /* font-family isn't space-separated, but =~ will have to do */
+  &[font-family~="monospace" i], & [font-family~="monospace" i] {
+    font-family: var(--font-mono);
+  }
 }
 .alignCenter {
   margin: 1em 0;
-}
-.alignCenter > *:first-child {
-  border: none;
-  /* this isn't optimal, but it's an existence proof.  PrinceXML doesn't
-     support flexbox yet.
-  */
-  display: table;
-  margin: 0 auto;
+  &.art-text {
+    background-color: var(--highlight-color);
+    border: 1px solid var(--line-color);
+    border-radius: 3px;
+    padding: 0.5em 1em 0;
+    margin-bottom: 0.5em;
+    & pre {
+      padding: 0;
+      width: auto;
+    }
+  }
+  & > *:first-child {
+    border: none;
+    /* this isn't optimal, but it's an existence proof.  PrinceXML doesn't
+       support flexbox yet.
+    */
+    display: table;
+    margin: 0 auto;
+  }
 }
 
 /* lists */
@@ -430,26 +434,25 @@ dl {
     --indent: 5ch;
     & > dt {
       min-width: calc(var(--indent) - 2ch);
+      float: none;
     }
-  }
-  &.olPercent > dt {
-    float: none;
   }
 
   dl > dd > & {
     margin-top: 0.5em;
     margin-bottom: 0;
   }
-}
-dl:not(.dlNewline) > dt {
-  float: left;
-  margin-right: 2ch;
-  min-width: 8ch;
-}
-dl > dd {
-  margin-bottom: .8em;
-  margin-left: var(--indent) !important; /* stupid element overrides */
-  min-height: 2ex;
+
+  &:not(.dlNewline) > dt {
+    float: left;
+    margin-right: 2ch;
+    min-width: 8ch;
+  }
+  & > dd {
+    margin-bottom: .8em;
+    margin-left: var(--indent) !important; /* stupid element overrides */
+    min-height: 2ex;
+  }
 }
 :is(dl.compact, .dlCompact) > dd {
   margin-bottom: 0;
@@ -465,20 +468,22 @@ dl > dd {
 }
 
 /* links */
-a, a[href].selfRef:hover {
+a {
   text-decoration: none;
+  &[href] {
+    color: var(--link-color);
+    &:hover { text-decoration: underline; }
+    &.selfRef {
+      color: var(--text-color);
+      &:hover {
+        text-decoration: none;
+        background-color: var(--highlight-color);
+      }
+    }
+  }
 }
-a[href] {
-  color: var(--link-color);
-}
-a[href].selfRef, .iref + a[href].internal {
+.iref + a[href].internal {
   color: var(--text-color);
-}
-a[href]:hover {
-  text-decoration: underline;
-}
-a[href].selfRef:hover {
-  background-color: var(--highlight-color);
 }
 a.xref:is(.cite, .auto), :is(#status-of-memo, #copyright) a {
   white-space: nowrap;
@@ -514,9 +519,9 @@ img {
 figure {
   margin: 0.5em 0;
   padding: 0;
-}
-figure blockquote {
-  margin: 0.8em 0.4em 0.4em;
+  & blockquote {
+    margin: 0.8em 0.4em 0.4em;
+  }
 }
 figcaption, caption {
   font-style: italic;
@@ -526,17 +531,19 @@ figcaption, caption {
 }
 @media screen {
   /* Auto-collapse boilerplate. */
-  :is(#status-of-memo, #copyright) p {
-    margin: -2px 0;
-    max-height: 0;
-    transition: max-height 2s ease, margin 0.5s ease 0.5s;
-    overflow: hidden;
-  }
-  :is(#status-of-memo, #copyright):hover p,
-  :is(#status-of-memo, #copyright) h2:target ~ p {
-    margin: 0.5em 0;
-    max-height: 500px;
-    overflow: auto;
+  :is(#status-of-memo, #copyright) {
+    & p {
+      margin: -2px 0;
+      max-height: 0;
+      transition: max-height 2s ease, margin 0.5s ease 0.5s;
+      overflow: hidden;
+    }
+    &:hover p,
+    & h2:target ~ p {
+      margin: 0.5em 0;
+      max-height: 500px;
+      overflow: auto;
+    }
   }
   pre, svg {
     display: inline-block;
@@ -586,25 +593,17 @@ table {
   max-width: 100%;
   margin: 0 0 1em;
   border-collapse: collapse;
-}
-table.right {
-  margin-left: auto;
-}
-table.center {
-  margin-left: auto;
-  margin-right: auto;
-}
-table.left {
-  margin-right: auto;
-}
-table .text-left {
-  text-align: left;
-}
-table .text-center {
-  text-align: center;
-}
-table .text-right {
-  text-align: right;
+  &.right { margin-left: auto; }
+  &.center { margin-left: auto; margin-right: auto; }
+  &.left { margin-right: auto; }
+  & .text-left { text-align: left; }
+  & .text-center { text-align: center; }
+  & .text-right { text-align: right; }
+  & caption {
+    margin: 0;
+    padding: 3px 0 3px 1em;
+  }
+  & p { margin: 0; }
 }
 
 thead, tbody {
@@ -624,13 +623,6 @@ th {
 :is(tr:nth-child(2n+1), thead+tbody > tr:nth-child(2n)) > td {
   background-color: var(--highlight-color);
 }
-table caption {
-  margin: 0;
-  padding: 3px 0 3px 1em;
-}
-table p {
-  margin: 0;
-}
 
 /* pilcrow */
 a.pilcrow {
@@ -641,18 +633,16 @@ a.pilcrow {
     color: var(--pilcrow-weak);
     &:hover { text-decoration: none; }
   }
-}
-@media not print {
-  :hover > a.pilcrow, a.pilcrow:focus {
-    opacity: 1;
+  @media not print {
+    :hover > &, &:focus {
+      opacity: 1;
+    }
+    &[href]:hover {
+      color: var(--pilcrow-strong);
+      background-color: transparent;
+    }
   }
-  a.pilcrow[href]:hover {
-    color: var(--pilcrow-strong);
-    background-color: transparent;
-  }
-}
-@media print {
-  a.pilcrow {
+  @media print {
     display: none;
   }
 }
@@ -711,9 +701,9 @@ sub, sup {
   font-size: 0.9em;
   font-style: italic;
   margin-top: 2em;
-}
-.docInfo .prepared {
-  float: right;
+  & .prepared {
+    float: right;
+  }
 }
 
 /* table of contents */
@@ -803,23 +793,27 @@ hr.addr {
   max-width: calc(100% - 16px);
 }
 @media (min-width: 500px) {
-  #authors-addresses > section {
-    column-count: 2;
-    column-gap: 20px;
-  }
-  #authors-addresses > section > h2 {
-    column-span: all;
-  }
-  /* hack for break-inside: avoid-column */
-  #authors-addresses address {
-    display: inline-block;
-    break-inside: avoid-column;
+  #authors-addresses {
+    & > section {
+      column-count: 2;
+      column-gap: 20px;
+    }
+    & > section > h2 {
+      column-span: all;
+    }
+    /* hack for break-inside: avoid-column */
+    & address {
+      display: inline-block;
+      break-inside: avoid-column;
+    }
   }
 }
 
 /* Comments */
-.rfcEditorRemove p:first-of-type {
-  font-style: italic;
+.rfcEditorRemove {
+  & p:first-of-type {
+    font-style: italic;
+  }
 }
 .cref {
   background-color: rgba(249, 232, 105, 0.3);
@@ -830,19 +824,21 @@ hr.addr {
 }
 
 @media screen {
-  #toc nav {
-    font-family: var(--font-title);
-    font-weight: 360;
-    & > ul { margin-bottom: 2em; }
-    & ul {
-      margin: 0 0 0 4px;
-      & :is(p, li) {
-        margin: 2px 0;
+  #toc {
+    & nav {
+      font-family: var(--font-title);
+      font-weight: 360;
+      & > ul { margin-bottom: 2em; }
+      & ul {
+        margin: 0 0 0 4px;
+        & :is(p, li) {
+          margin: 2px 0;
+        }
       }
     }
-  }
-  #toc a.toplink {
-    float: right;
+    & a.toplink {
+      float: right;
+    }
   }
 }
 @media not screen {
@@ -863,54 +859,54 @@ hr.addr {
     margin: 0;
     border-bottom: 1px solid #ccc;
     opacity: 0.6;
-  }
-  #toc h2 {
-    margin: 0;
-    padding: 2px 0 2px 6px;
-    padding-right: 1em;
-    font-size: 18px;
-    line-height: 24px;
-    min-width: 190px;
-    text-align: right;
-    background-color: #444;
-    color: white;
-    cursor: pointer;
-    &::before { /* css hamburger */
-      float: right;
-      position: relative;
-      width: 1em;
-      height: 1px;
-      left: -164px;
-      margin: 8px 0 0 0;
-      background: white none repeat scroll 0 0;
-      box-shadow: 0 4px 0 0 white, 0 8px 0 0 white;
-      content: "";
+    & h2 {
+      margin: 0;
+      padding: 2px 0 2px 6px;
+      padding-right: 1em;
+      font-size: 18px;
+      line-height: 24px;
+      min-width: 190px;
+      text-align: right;
+      background-color: #444;
+      color: white;
+      cursor: pointer;
+      &::before { /* css hamburger */
+        float: right;
+        position: relative;
+        width: 1em;
+        height: 1px;
+        left: -164px;
+        margin: 8px 0 0 0;
+        background: white none repeat scroll 0 0;
+        box-shadow: 0 4px 0 0 white, 0 8px 0 0 white;
+        content: "";
+      }
     }
-  }
-  #toc nav {
-    display: none;
-    background-color: var(--background-color);
-    padding: 0.5em 1em 1em;
-    overflow: auto;
-    overscroll-behavior: contain;
-    height: calc(100vh - 48px);
-    border-left: 1px solid #ddd;
-  }
-  #toc.active {
-    opacity: 1;
-    & nav { display: block; }
-  }
-  /* Make the collapsed ToC header render white on gray also when it's a link */
-  #toc h2 a,
-  #toc h2 a:is(:link, :focus, :hover),
-  #toc a.toplink,
-  #toc a.toplink:hover {
-    color: white;
-    background-color: #444;
-    text-decoration: none;
-  }
-  #toc a.toplink {
-    margin: 2px 0.5em 0;
+    & nav {
+      display: none;
+      background-color: var(--background-color);
+      padding: 0.5em 1em 1em;
+      overflow: auto;
+      overscroll-behavior: contain;
+      height: calc(100vh - 48px);
+      border-left: 1px solid #ddd;
+    }
+    &.active {
+      opacity: 1;
+      & nav { display: block; }
+    }
+    /* Make the collapsed ToC header render white on gray also when it's a link */
+    & h2 a,
+    & h2 a:is(:link, :focus, :hover),
+    & a.toplink,
+    & a.toplink:hover {
+      color: white;
+      background-color: #444;
+      text-decoration: none;
+    }
+    & a.toplink {
+      margin: 2px 0.5em 0;
+    }
   }
 }
 
@@ -929,26 +925,26 @@ hr.addr {
     margin: 0;
     padding: 0;
     z-index: 1;
-  }
-  #toc h2 {
-    margin: 0;
-    padding: 0.25em 1em 1em 0;
-  }
-  #toc nav {
-    display: block;
-    height: calc(90vh - 84px);
-    bottom: 0;
-    padding: 0.5em 0 2em;
-    overflow: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
+    & h2 {
+      margin: 0;
+      padding: 0.25em 1em 1em 0;
+    }
+    & nav {
+      display: block;
+      height: calc(90vh - 84px);
+      bottom: 0;
+      padding: 0.5em 0 2em;
+      overflow: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+    }
+    & a.toplink {
+      margin: 8px 0.5em 0;
+    }
   }
   img { /* future proofing */
     max-width: 100%;
     height: auto;
-  }
-  #toc a.toplink {
-    margin: 8px 0.5em 0;
   }
 }
 
@@ -964,12 +960,13 @@ hr.addr {
   #n-copyright-notice {
     border-bottom: none;
   }
-  #toc, #n-introduction {
-    page-break-before: always;
-  }
   #toc {
+    page-break-before: always;
     border-top: none;
     padding-top: 0;
+  }
+  #n-introduction {
+    page-break-before: always;
   }
   figure, pre, .vcard {
     page-break-inside: avoid;
@@ -1031,17 +1028,19 @@ hr.addr {
 }
 
 /* SVG Trick: a prefix match works because only black and white are allowed */
-svg :is([stroke="black"], [stroke^="#000"]) {
-  stroke: var(--text-color);
-}
-svg :is([stroke="white"], [stroke^="#fff"]) {
-  stroke: var(--background-color);
-}
-svg :is([fill="black"], [fill^="#000"], :not([fill])) {
-  fill: var(--text-color);
-}
-svg :is([fill="white"], [fill^="#fff"]) {
-  fill: var(--background-color);
+svg {
+  & :is([stroke="black"], [stroke^="#000"]) {
+    stroke: var(--text-color);
+  }
+  & :is([stroke="white"], [stroke^="#fff"]) {
+    stroke: var(--background-color);
+  }
+  & :is([fill="black"], [fill^="#000"], :not([fill])) {
+    fill: var(--text-color);
+  }
+  & :is([fill="white"], [fill^="#fff"]) {
+    fill: var(--background-color);
+  }
 }
 </style>
 
@@ -1051,11 +1050,11 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <thead><tr>
 <td class="left">Internet-Draft</td>
 <td class="center">EPOP</td>
-<td class="right">May 2026</td>
+<td class="right">July 2026</td>
 </tr></thead>
 <tfoot><tr>
 <td class="left">Ambekar</td>
-<td class="center">Expires 20 November 2026</td>
+<td class="center">Expires 21 January 2027</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1068,12 +1067,12 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <dd class="internet-draft">draft-ambekar-oauth-epop-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-05-19" class="published">19 May 2026</time>
+<time datetime="2026-07-20" class="published">20 July 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Standards Track</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2026-11-20">20 November 2026</time></dd>
+<dd class="expires"><time datetime="2027-01-21">21 January 2027</time></dd>
 <dt class="label-authors">Author:</dt>
 <dd class="authors">
 <div class="author">
@@ -1086,7 +1085,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <h1 id="title">JSON Web Token (JWT) Profile for OAuth 2.0 Enveloped Proof of Possession (EPOP)</h1>
 <section id="section-abstract">
       <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
-<p id="section-abstract-1">This specification defines a profile for OAuth 2.0 sender-constrained credentials in which authorization codes, access tokens, and refresh tokens are cryptographically bound to the client's private key as a single inseparable envelope. The profile extends sender-constraining beyond HTTP to non-HTTP transports including MQTT, Kafka, the Model Context Protocol (MCP), gRPC, and SASL-based protocols such as those defined in <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span>. It introduces atomic proof-of-possession key rotation, enabling clients to rotate key pairs without disrupting active sessions, and an offline-derived client nonce (<code>cnonce</code>) that eliminates the server-issued nonce round-trip required by existing mechanisms — enabling stateless proof validation critical for non-HTTP and high-throughput deployments. Authorization servers, resource servers, and clients from different vendors can implement this profile interoperably.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+<p id="section-abstract-1">This specification defines a profile for OAuth 2.0 sender-constrained credentials in which authorization codes, access tokens, and refresh tokens are cryptographically bound to the client's private key as a single inseparable envelope. Unlike existing mechanisms, EPOP provides proof-of-possession uniformly across both JWT and opaque access tokens, and across HTTP and non-HTTP transports. The profile extends sender-constraining beyond HTTP to non-HTTP transports including MQTT, Kafka, the Model Context Protocol (MCP), gRPC, and SASL-based protocols such as those defined in <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span>. It introduces atomic proof-of-possession key rotation, enabling clients to rotate key pairs without disrupting active sessions, and an offline-derived client nonce (<code>cnonce</code>) that eliminates the server-issued nonce round-trip required by existing mechanisms — enabling stateless proof validation critical for non-HTTP and high-throughput deployments. Authorization servers, resource servers, and clients from different vendors can implement this profile interoperably.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
 </section>
 <section class="note rfcEditorRemove" id="section-note.1">
       <h2 id="name-about-this-document">
@@ -1123,7 +1122,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 20 November 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 21 January 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1373,7 +1372,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
                 <p id="section-toc.1-1.13.2.7.1"><a href="#section-13.7" class="auto internal xref">13.7</a>.  <a href="#name-jwt-claims-registration" class="internal xref">JWT Claims Registration</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.8">
-                <p id="section-toc.1-1.13.2.8.1"><a href="#section-13.8" class="auto internal xref">13.8</a>.  <a href="#name-jwt-type-registration" class="internal xref">JWT Type Registration</a></p>
+                <p id="section-toc.1-1.13.2.8.1"><a href="#section-13.8" class="auto internal xref">13.8</a>.  <a href="#name-media-type-registration" class="internal xref">Media Type Registration</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.9">
                 <p id="section-toc.1-1.13.2.9.1"><a href="#section-13.9" class="auto internal xref">13.9</a>.  <a href="#name-oauth-authorization-server-" class="internal xref">OAuth Authorization Server Metadata</a></p>
@@ -1416,11 +1415,12 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <a href="#section-1" class="section-number selfRef">1. </a><a href="#name-introduction" class="section-name selfRef">Introduction</a>
       </h2>
 <p id="section-1-1">OAuth 2.0 <span>[<a href="#RFC6749" class="cite xref">RFC6749</a>]</span> access tokens are bearer tokens by default: any party in possession of a token can use it, regardless of whether that party is the legitimate client to which the token was issued. This property makes token theft a practical attack — intercepted tokens can be replayed without further credential material.<a href="#section-1-1" class="pilcrow">¶</a></p>
-<p id="section-1-2">Sender-constraining mechanisms address this by cryptographically binding a token to the client's key pair so that possession of the token alone is insufficient to use it. Demonstrating Proof of Possession (DPoP) <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span> introduced sender-constraining for HTTP-based OAuth flows. However, DPoP relies on HTTP-specific request parameters (<code>htm</code>, <code>htu</code>) and a server-issued nonce mechanism that requires an additional round-trip and imposes per-client nonce state management on servers — making it unsuitable for non-HTTP transports such as MQTT, Kafka, gRPC, and SASL-based protocols. No existing specification provides an interoperable sender-constraining profile that operates uniformly across both HTTP and non-HTTP transports.<a href="#section-1-2" class="pilcrow">¶</a></p>
-<p id="section-1-3">A further deployment challenge with DPoP is the requirement to propagate two distinct HTTP headers — <code>Authorization: DPoP &lt;token&gt;</code> and <code>DPoP: &lt;proof&gt;</code> — as an inseparable pair through every layer of a distributed system. API gateways, reverse proxies, and service-mesh sidecars must each be updated to recognize and forward the <code>DPoP</code> header; many intermediaries strip non-standard headers by default. Every resource server onboarded to DPoP must separately implement dual-header awareness and proof validation. A single hop that discards the <code>DPoP</code> header silently invalidates the proof-of-possession guarantee for the entire request chain, creating a widespread integration burden across heterogeneous microservice deployments.<a href="#section-1-3" class="pilcrow">¶</a></p>
-<p id="section-1-4">This document defines the Enveloped Proof of Possession (EPOP) profile for OAuth 2.0 credentials. In this profile, the OAuth credential — authorization code, access token, or refresh token — is nested within the <code>ntk</code> (Nested Token) claim (<a href="#token-payload" class="auto internal xref">Section 3.2</a>) of a signed JSON Web Token (JWT) <span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span> envelope. The entire structure, credential and proof together, is signed with the client's private key. The credential and the proof of possession are a single, inseparable cryptographic object: there is no credential without a proof.<a href="#section-1-4" class="pilcrow">¶</a></p>
-<p id="section-1-5">The profile introduces a protocol-neutral <code>rctx</code> (Request Context) claim (<a href="#token-payload" class="auto internal xref">Section 3.2</a>) that replaces the HTTP-specific <code>htm</code>/<code>htu</code> claims of DPoP, enabling EPOP tokens to operate over any transport without protocol-specific adaptation. An offline-derived client nonce (<code>cnonce</code>) (<a href="#cnonce" class="auto internal xref">Section 7</a>) computed from public inputs eliminates the server-issued nonce round-trip required by <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>, enabling stateless proof validation particularly suited to non-HTTP and high-throughput transports. The profile further defines atomic proof-of-possession key rotation, in which a client introduces a new key pair during a token refresh without disrupting the active session, and extends coverage to the full OAuth token lifecycle including token revocation and token exchange.<a href="#section-1-5" class="pilcrow">¶</a></p>
-<p id="section-1-6">For SASL-based protocols, this document defines <code>OAUTHEPOP</code>, a new SASL mechanism extending <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> with sender-constraining support. All behaviors defined in <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> remain in effect; this document adds only the EPOP-specific authentication type and key binding verification.<a href="#section-1-6" class="pilcrow">¶</a></p>
+<p id="section-1-2">Sender-constraining mechanisms address this by cryptographically binding a token to the client's key pair so that possession of the token alone is insufficient to use it. Demonstrating Proof of Possession (DPoP) <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span> introduced sender-constraining for HTTP-based OAuth flows. However, DPoP relies on HTTP-specific request parameters (<code>htm</code>, <code>htu</code>) and a server-issued nonce mechanism that requires an additional round-trip and imposes per-client nonce state management on servers — making it unsuitable for non-HTTP transports such as MQTT, Kafka, gRPC, and SASL-based protocols. DPoP's <code>ath</code> claim binds opaque access tokens on HTTP, but provides no sender-constraining path for opaque tokens on non-HTTP transports. No existing specification provides an interoperable sender-constraining profile that operates uniformly across both JWT and opaque access tokens, and across both HTTP and non-HTTP transports.<a href="#section-1-2" class="pilcrow">¶</a></p>
+<p id="section-1-3">Opaque access tokens are widely deployed in production environments for their revocability, privacy properties, and compact size. Selective disclosure mechanisms such as SD-JWT (<span>[<a href="#RFC9901" class="cite xref">RFC9901</a>]</span>) require JWT structure and cannot be applied to opaque tokens. No existing sender-constraining mechanism addresses opaque access tokens outside of HTTP. This leaves a broad class of production deployments — those using opaque tokens with Kafka, MQTT, gRPC, or SASL-based protocols — without any interoperable proof-of-possession mechanism.<a href="#section-1-3" class="pilcrow">¶</a></p>
+<p id="section-1-4">A further deployment challenge with DPoP is the requirement to propagate two distinct HTTP headers — <code>Authorization: DPoP &lt;token&gt;</code> and <code>DPoP: &lt;proof&gt;</code> — as an inseparable pair through every layer of a distributed system. API gateways, reverse proxies, and service-mesh sidecars must each be updated to recognize and forward the <code>DPoP</code> header; many intermediaries strip non-standard headers by default. Every resource server onboarded to DPoP must separately implement dual-header awareness and proof validation. A single hop that discards the <code>DPoP</code> header silently invalidates the proof-of-possession guarantee for the entire request chain, creating a widespread integration burden across heterogeneous microservice deployments.<a href="#section-1-4" class="pilcrow">¶</a></p>
+<p id="section-1-5">This document defines the Enveloped Proof of Possession (EPOP) profile for OAuth 2.0 credentials. In this profile, the OAuth credential — authorization code, access token, or refresh token — is nested within the <code>ntk</code> (Nested Token) claim (<a href="#token-payload" class="auto internal xref">Section 3.2</a>) of a signed JSON Web Token (JWT) <span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span> envelope. The entire structure, credential and proof together, is signed with the client's private key. The credential and the proof of possession are a single, inseparable cryptographic object: there is no credential without a proof. The <code>ntk</code> claim accommodates both JWT and opaque access tokens using the same envelope and validation path, providing uniform proof-of-possession regardless of token format.<a href="#section-1-5" class="pilcrow">¶</a></p>
+<p id="section-1-6">The profile introduces a protocol-neutral <code>rctx</code> (Request Context) claim (<a href="#token-payload" class="auto internal xref">Section 3.2</a>) that replaces the HTTP-specific <code>htm</code>/<code>htu</code> claims of DPoP, enabling EPOP tokens to operate over any transport without protocol-specific adaptation. An offline-derived client nonce (<code>cnonce</code>) (<a href="#cnonce" class="auto internal xref">Section 7</a>) computed from public inputs eliminates the server-issued nonce round-trip required by <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>, enabling stateless proof validation particularly suited to non-HTTP and high-throughput transports. The profile further defines atomic proof-of-possession key rotation, in which a client introduces a new key pair during a token refresh without disrupting the active session, and extends coverage to the full OAuth token lifecycle including token revocation and token exchange. Together, these properties make EPOP the first sender-constraining profile to cover all four combinations: JWT tokens over HTTP, opaque tokens over HTTP, JWT tokens over non-HTTP transports, and opaque tokens over non-HTTP transports.<a href="#section-1-6" class="pilcrow">¶</a></p>
+<p id="section-1-7">For SASL-based protocols, this document defines <code>OAUTHEPOP</code>, a new SASL mechanism extending <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> with sender-constraining support. All behaviors defined in <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> remain in effect; this document adds only the EPOP-specific authentication type and key binding verification.<a href="#section-1-7" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="conventions-and-definitions">
@@ -2668,7 +2668,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
               <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>
 </td>
             <td class="text-left" rowspan="1" colspan="1">OAuth 2.0 Demonstrating Proof of Possession (DPoP)</td>
-            <td class="text-left" rowspan="1" colspan="1">EPOP generalizes the DPoP proof model: replaces <code>htm</code>/<code>htu</code> with <code>rctx</code> for protocol agnosticism; replaces the <code>ath</code> hash with <code>ntk</code> embedding so credential and proof travel as one object; extends coverage to authorization codes and refresh tokens; adds atomic key rotation and the offline <code>cnonce</code>. Additionally, DPoP's requirement to carry two coordinated HTTP headers (<code>Authorization</code> and <code>DPoP</code>) imposes a propagation burden on every intermediary and resource server in a distributed system; EPOP eliminates this by enveloping the proof inside the token, so a single <code>Authorization</code> header carries the inseparable credential-and-proof object through all hops without requiring middleware changes.</td>
+            <td class="text-left" rowspan="1" colspan="1">EPOP generalizes the DPoP proof model: replaces <code>htm</code>/<code>htu</code> with <code>rctx</code> for protocol agnosticism; replaces the <code>ath</code> hash with <code>ntk</code> embedding so credential and proof travel as one object; extends coverage to authorization codes and refresh tokens; adds atomic key rotation and the offline <code>cnonce</code>. Additionally, DPoP's requirement to carry two coordinated HTTP headers (<code>Authorization</code> and <code>DPoP</code>) imposes a propagation burden on every intermediary and resource server in a distributed system; EPOP eliminates this by enveloping the proof inside the token, so a single <code>Authorization</code> header carries the inseparable credential-and-proof object through all hops without requiring middleware changes. Additionally, DPoP's <code>ath</code> mechanism for opaque access tokens is coupled to HTTP request parameters, leaving opaque tokens on non-HTTP transports without a sender-constraining path. EPOP's <code>ntk</code> claim handles opaque and JWT tokens identically across all transports.</td>
           </tr>
           <tr>
             <td class="text-left" rowspan="1" colspan="1">
@@ -2711,6 +2711,13 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
 </td>
             <td class="text-left" rowspan="1" colspan="1">HMAC-based Key Derivation Function (HKDF)</td>
             <td class="text-left" rowspan="1" colspan="1">EPOP uses HKDF-SHA256 to derive a per-client key from the optional server-controlled <code>epop_cnonce_seed</code> and the client's public key, enabling stateless offline cnonce computation.</td>
+          </tr>
+          <tr>
+            <td class="text-left" rowspan="1" colspan="1">
+              <span>[<a href="#RFC9901" class="cite xref">RFC9901</a>]</span>
+</td>
+            <td class="text-left" rowspan="1" colspan="1">Selective Disclosure for JWTs (SD-JWT)</td>
+            <td class="text-left" rowspan="1" colspan="1">SD-JWT provides selective disclosure of JWT claims but has no sender-constraining mechanism and requires JWT structure — it cannot be applied to opaque access tokens. EPOP is complementary: an SD-JWT credential can be carried in the EPOP <code>ntk</code> claim, gaining sender-constraining without modifying the SD-JWT format. A profile combining EPOP and SD-JWT is left to a future document.</td>
           </tr>
         </tbody>
       </table>
@@ -3278,30 +3285,115 @@ binding mechanism used.<a href="#section-10.4-2.3.1" class="pilcrow">¶</a></p>
 </dl>
 </section>
 </div>
-<div id="iana-jwt-type">
+<div id="iana-media-type">
 <section id="section-13.8">
-        <h3 id="name-jwt-type-registration">
-<a href="#section-13.8" class="section-number selfRef">13.8. </a><a href="#name-jwt-type-registration" class="section-name selfRef">JWT Type Registration</a>
+        <h3 id="name-media-type-registration">
+<a href="#section-13.8" class="section-number selfRef">13.8. </a><a href="#name-media-type-registration" class="section-name selfRef">Media Type Registration</a>
         </h3>
-<p id="section-13.8-1">This specification requests registration of the following <code>typ</code> header parameter value in the "JSON Web Signature and Encryption Header Parameters" registry established by <span>[<a href="#RFC7515" class="cite xref">RFC7515</a>]</span>, in accordance with <span>[<a href="#RFC8725" class="cite xref">RFC8725</a>]</span> Section 3.11:<a href="#section-13.8-1" class="pilcrow">¶</a></p>
+<p id="section-13.8-1">This specification requests registration of the following media type in the "Media Types" registry (<span>[<a href="#RFC6838" class="cite xref">RFC6838</a>]</span>), following the convention established by <span>[<a href="#RFC9068" class="cite xref">RFC9068</a>]</span> for explicitly typed JWTs and the recommendation in <span>[<a href="#RFC8725" class="cite xref">RFC8725</a>]</span> Section 3.11:<a href="#section-13.8-1" class="pilcrow">¶</a></p>
 <span class="break"></span><dl class="dlParallel" id="section-13.8-2">
-          <dt id="section-13.8-2.1">Type Name: <code>epop+jwt</code>
-</dt>
+          <dt id="section-13.8-2.1">Type name:</dt>
           <dd style="margin-left: 1.5em" id="section-13.8-2.2">
-            <p id="section-13.8-2.2.1">Description: Enveloped Proof of Possession JWT.<a href="#section-13.8-2.2.1" class="pilcrow">¶</a></p>
+            <p id="section-13.8-2.2.1"><code>application</code><a href="#section-13.8-2.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-13.8-2.3"></dt>
+<dt id="section-13.8-2.3">Subtype name:</dt>
           <dd style="margin-left: 1.5em" id="section-13.8-2.4">
-            <p id="section-13.8-2.4.1">Change Controller: IETF<a href="#section-13.8-2.4.1" class="pilcrow">¶</a></p>
+            <p id="section-13.8-2.4.1"><code>epop+jwt</code><a href="#section-13.8-2.4.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-13.8-2.5"></dt>
+<dt id="section-13.8-2.5">Required parameters:</dt>
           <dd style="margin-left: 1.5em" id="section-13.8-2.6">
-            <p id="section-13.8-2.6.1">Specification Document(s): <a href="#token-header" class="auto internal xref">Section 3.1</a> of this document<a href="#section-13.8-2.6.1" class="pilcrow">¶</a></p>
+            <p id="section-13.8-2.6.1">n/a<a href="#section-13.8-2.6.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.7">Optional parameters:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.8">
+            <p id="section-13.8-2.8.1">n/a<a href="#section-13.8-2.8.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.9">Encoding considerations:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.10">
+            <p id="section-13.8-2.10.1">binary; see <span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span>, Section 3.1<a href="#section-13.8-2.10.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.11">Security considerations:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.12">
+            <p id="section-13.8-2.12.1">See <a href="#security" class="auto internal xref">Section 11</a> of this document<a href="#section-13.8-2.12.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.13">Interoperability considerations:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.14">
+            <p id="section-13.8-2.14.1">n/a<a href="#section-13.8-2.14.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.15">Published specification:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.16">
+            <p id="section-13.8-2.16.1">This document<a href="#section-13.8-2.16.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.17">Applications that use this media type:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.18">
+            <p id="section-13.8-2.18.1">OAuth 2.0 authorization servers, resource servers, and clients implementing EPOP<a href="#section-13.8-2.18.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.19">Fragment identifier considerations:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.20">
+            <p id="section-13.8-2.20.1">n/a<a href="#section-13.8-2.20.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.21">Additional information:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.22">
+            <p id="section-13.8-2.22.1">Deprecated alias names for this type: n/a<a href="#section-13.8-2.22.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.23"></dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.24">
+            <p id="section-13.8-2.24.1">Magic number(s): n/a<a href="#section-13.8-2.24.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.25"></dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.26">
+            <p id="section-13.8-2.26.1">File extension(s): n/a<a href="#section-13.8-2.26.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.27"></dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.28">
+            <p id="section-13.8-2.28.1">Macintosh file type code(s): n/a<a href="#section-13.8-2.28.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.29">Person and email address to contact for further information:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.30">
+            <p id="section-13.8-2.30.1">Ashwin Ambekar, <a href="mailto:ambekar@gmail.com">ambekar@gmail.com</a><a href="#section-13.8-2.30.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.31">Intended usage:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.32">
+            <p id="section-13.8-2.32.1">COMMON<a href="#section-13.8-2.32.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.33">Restrictions on usage:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.34">
+            <p id="section-13.8-2.34.1">none<a href="#section-13.8-2.34.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.35">Author:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.36">
+            <p id="section-13.8-2.36.1">Ashwin Ambekar<a href="#section-13.8-2.36.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.37">Change controller:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.38">
+            <p id="section-13.8-2.38.1">IETF<a href="#section-13.8-2.38.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.8-2.39">Provisional registration:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.8-2.40">
+            <p id="section-13.8-2.40.1">no<a href="#section-13.8-2.40.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
+<p id="section-13.8-3">As specified in <a href="#token-header" class="auto internal xref">Section 3.1</a>, the value of the <code>typ</code> header parameter for EPOP tokens is <code>epop+jwt</code>, per the convention of omitting the <code>application/</code> prefix described in <span>[<a href="#RFC7515" class="cite xref">RFC7515</a>]</span> Section 4.1.9.<a href="#section-13.8-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="iana-as-metadata">
@@ -3310,29 +3402,53 @@ binding mechanism used.<a href="#section-10.4-2.3.1" class="pilcrow">¶</a></p>
 <a href="#section-13.9" class="section-number selfRef">13.9. </a><a href="#name-oauth-authorization-server-" class="section-name selfRef">OAuth Authorization Server Metadata</a>
         </h3>
 <p id="section-13.9-1">This specification requests registration of the following names in the "OAuth Authorization Server Metadata" registry (<span>[<a href="#RFC8414" class="cite xref">RFC8414</a>]</span>):<a href="#section-13.9-1" class="pilcrow">¶</a></p>
-<ul class="normal">
-<li class="normal" id="section-13.9-2.1">
-            <p id="section-13.9-2.1.1"><code>epop_supported</code><a href="#section-13.9-2.1.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-13.9-2.2">
-            <p id="section-13.9-2.2.1"><code>epop_ntk_types_supported</code><a href="#section-13.9-2.2.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-13.9-2.3">
-            <p id="section-13.9-2.3.1"><code>epop_key_rotation_supported</code><a href="#section-13.9-2.3.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-13.9-2.4">
-            <p id="section-13.9-2.4.1"><code>epop_cnonce_seed</code><a href="#section-13.9-2.4.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-13.9-2.5">
-            <p id="section-13.9-2.5.1"><code>epop_cnonce_step_seconds</code><a href="#section-13.9-2.5.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-13.9-2.6">
-            <p id="section-13.9-2.6.1"><code>epop_cnonce_seed_id</code><a href="#section-13.9-2.6.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-13.9-2.7">
-            <p id="section-13.9-2.7.1"><code>epop_cnonce_required</code><a href="#section-13.9-2.7.1" class="pilcrow">¶</a></p>
-</li>
-        </ul>
+<span class="break"></span><dl class="dlParallel" id="section-13.9-2">
+          <dt id="section-13.9-2.1"><code>epop_supported</code></dt>
+          <dd style="margin-left: 1.5em" id="section-13.9-2.2">
+            <p id="section-13.9-2.2.1">Metadata Description: Indicates the authorization server's EPOP support posture: <code>"disabled"</code>, <code>"recommended"</code>, or <code>"required"</code>.<a href="#section-13.9-2.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.9-2.3"><code>epop_ntk_types_supported</code></dt>
+          <dd style="margin-left: 1.5em" id="section-13.9-2.4">
+            <p id="section-13.9-2.4.1">Metadata Description: JSON array of nested credential (<code>ntk</code>) formats accepted by the server: <code>"jwt"</code> and/or <code>"opaque"</code>.<a href="#section-13.9-2.4.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.9-2.5"><code>epop_key_rotation_supported</code></dt>
+          <dd style="margin-left: 1.5em" id="section-13.9-2.6">
+            <p id="section-13.9-2.6.1">Metadata Description: Boolean indicating whether the authorization server supports EPOP atomic key rotation (<a href="#key-rotation-refresh" class="auto internal xref">Section 6.1.3.2</a>).<a href="#section-13.9-2.6.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.9-2.7"><code>epop_cnonce_seed</code></dt>
+          <dd style="margin-left: 1.5em" id="section-13.9-2.8">
+            <p id="section-13.9-2.8.1">Metadata Description: Base64url-encoded 32-byte deployment seed used to scope offline client nonce (<code>cnonce</code>) derivation.<a href="#section-13.9-2.8.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.9-2.9"><code>epop_cnonce_step_seconds</code></dt>
+          <dd style="margin-left: 1.5em" id="section-13.9-2.10">
+            <p id="section-13.9-2.10.1">Metadata Description: Integer time-step duration, in seconds, used in client nonce (<code>cnonce</code>) computation and verification.<a href="#section-13.9-2.10.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.9-2.11"><code>epop_cnonce_seed_id</code></dt>
+          <dd style="margin-left: 1.5em" id="section-13.9-2.12">
+            <p id="section-13.9-2.12.1">Metadata Description: Opaque identifier for the current value of <code>epop_cnonce_seed</code>.<a href="#section-13.9-2.12.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.9-2.13"><code>epop_cnonce_required</code></dt>
+          <dd style="margin-left: 1.5em" id="section-13.9-2.14">
+            <p id="section-13.9-2.14.1">Metadata Description: Boolean indicating whether EPOP tokens presented to this server must include a <code>cnonce</code> claim.<a href="#section-13.9-2.14.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.9-2.15">Change Controller:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.9-2.16">
+            <p id="section-13.9-2.16.1">IETF<a href="#section-13.9-2.16.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.9-2.17">Specification Document(s):</dt>
+          <dd style="margin-left: 1.5em" id="section-13.9-2.18">
+            <p id="section-13.9-2.18.1"><a href="#epop-metadata-fields" class="auto internal xref">Section 8.1</a> of this document<a href="#section-13.9-2.18.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
 </section>
 </div>
 <div id="iana-rs-metadata">
@@ -3341,26 +3457,48 @@ binding mechanism used.<a href="#section-10.4-2.3.1" class="pilcrow">¶</a></p>
 <a href="#section-13.10" class="section-number selfRef">13.10. </a><a href="#name-oauth-protected-resource-me" class="section-name selfRef">OAuth Protected Resource Metadata</a>
         </h3>
 <p id="section-13.10-1">This specification requests registration of the following names in the "OAuth Protected Resource Metadata" registry (<span>[<a href="#RFC9728" class="cite xref">RFC9728</a>]</span>):<a href="#section-13.10-1" class="pilcrow">¶</a></p>
-<ul class="normal">
-<li class="normal" id="section-13.10-2.1">
-            <p id="section-13.10-2.1.1"><code>epop_supported</code><a href="#section-13.10-2.1.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-13.10-2.2">
-            <p id="section-13.10-2.2.1"><code>epop_ntk_types_supported</code><a href="#section-13.10-2.2.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-13.10-2.3">
-            <p id="section-13.10-2.3.1"><code>epop_cnonce_seed</code><a href="#section-13.10-2.3.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-13.10-2.4">
-            <p id="section-13.10-2.4.1"><code>epop_cnonce_step_seconds</code><a href="#section-13.10-2.4.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-13.10-2.5">
-            <p id="section-13.10-2.5.1"><code>epop_cnonce_seed_id</code><a href="#section-13.10-2.5.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-13.10-2.6">
-            <p id="section-13.10-2.6.1"><code>epop_cnonce_required</code><a href="#section-13.10-2.6.1" class="pilcrow">¶</a></p>
-</li>
-        </ul>
+<span class="break"></span><dl class="dlParallel" id="section-13.10-2">
+          <dt id="section-13.10-2.1"><code>epop_supported</code></dt>
+          <dd style="margin-left: 1.5em" id="section-13.10-2.2">
+            <p id="section-13.10-2.2.1">Metadata Description: Indicates the resource server's EPOP support posture: <code>"disabled"</code>, <code>"recommended"</code>, or <code>"required"</code>.<a href="#section-13.10-2.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.10-2.3"><code>epop_ntk_types_supported</code></dt>
+          <dd style="margin-left: 1.5em" id="section-13.10-2.4">
+            <p id="section-13.10-2.4.1">Metadata Description: JSON array of nested credential (<code>ntk</code>) formats accepted by the server: <code>"jwt"</code> and/or <code>"opaque"</code>.<a href="#section-13.10-2.4.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.10-2.5"><code>epop_cnonce_seed</code></dt>
+          <dd style="margin-left: 1.5em" id="section-13.10-2.6">
+            <p id="section-13.10-2.6.1">Metadata Description: Base64url-encoded 32-byte deployment seed used to scope offline client nonce (<code>cnonce</code>) derivation.<a href="#section-13.10-2.6.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.10-2.7"><code>epop_cnonce_step_seconds</code></dt>
+          <dd style="margin-left: 1.5em" id="section-13.10-2.8">
+            <p id="section-13.10-2.8.1">Metadata Description: Integer time-step duration, in seconds, used in client nonce (<code>cnonce</code>) computation and verification.<a href="#section-13.10-2.8.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.10-2.9"><code>epop_cnonce_seed_id</code></dt>
+          <dd style="margin-left: 1.5em" id="section-13.10-2.10">
+            <p id="section-13.10-2.10.1">Metadata Description: Opaque identifier for the current value of <code>epop_cnonce_seed</code>.<a href="#section-13.10-2.10.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.10-2.11"><code>epop_cnonce_required</code></dt>
+          <dd style="margin-left: 1.5em" id="section-13.10-2.12">
+            <p id="section-13.10-2.12.1">Metadata Description: Boolean indicating whether EPOP tokens presented to this server must include a <code>cnonce</code> claim.<a href="#section-13.10-2.12.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.10-2.13">Change Controller:</dt>
+          <dd style="margin-left: 1.5em" id="section-13.10-2.14">
+            <p id="section-13.10-2.14.1">IETF<a href="#section-13.10-2.14.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-13.10-2.15">Specification Document(s):</dt>
+          <dd style="margin-left: 1.5em" id="section-13.10-2.16">
+            <p id="section-13.10-2.16.1"><a href="#epop-metadata-fields" class="auto internal xref">Section 8.1</a> of this document<a href="#section-13.10-2.16.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
 </section>
 </div>
 <div id="iana-rctx">
@@ -3492,6 +3630,10 @@ binding mechanism used.<a href="#section-10.4-2.3.1" class="pilcrow">¶</a></p>
         <dd>
 <span class="refAuthor">Hardt, D., Ed.</span>, <span class="refTitle">"The OAuth 2.0 Authorization Framework"</span>, <span class="seriesInfo">RFC 6749</span>, <span class="seriesInfo">DOI 10.17487/RFC6749</span>, <time datetime="2012-10" class="refDate">October 2012</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc6749">https://www.rfc-editor.org/rfc/rfc6749</a>&gt;</span>. </dd>
 <dd class="break"></dd>
+<dt id="RFC6838">[RFC6838]</dt>
+        <dd>
+<span class="refAuthor">Freed, N.</span>, <span class="refAuthor">Klensin, J.</span>, and <span class="refAuthor">T. Hansen</span>, <span class="refTitle">"Media Type Specifications and Registration Procedures"</span>, <span class="seriesInfo">BCP 13</span>, <span class="seriesInfo">RFC 6838</span>, <span class="seriesInfo">DOI 10.17487/RFC6838</span>, <time datetime="2013-01" class="refDate">January 2013</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc6838">https://www.rfc-editor.org/rfc/rfc6838</a>&gt;</span>. </dd>
+<dd class="break"></dd>
 <dt id="RFC7009">[RFC7009]</dt>
         <dd>
 <span class="refAuthor">Lodderstedt, T., Ed.</span>, <span class="refAuthor">Dronia, S.</span>, and <span class="refAuthor">M. Scurtescu</span>, <span class="refTitle">"OAuth 2.0 Token Revocation"</span>, <span class="seriesInfo">RFC 7009</span>, <span class="seriesInfo">DOI 10.17487/RFC7009</span>, <time datetime="2013-08" class="refDate">August 2013</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc7009">https://www.rfc-editor.org/rfc/rfc7009</a>&gt;</span>. </dd>
@@ -3570,8 +3712,16 @@ binding mechanism used.<a href="#section-10.4-2.3.1" class="pilcrow">¶</a></p>
 <span class="refAuthor">Cotton, M.</span>, <span class="refAuthor">Leiba, B.</span>, and <span class="refAuthor">T. Narten</span>, <span class="refTitle">"Guidelines for Writing an IANA Considerations Section in RFCs"</span>, <span class="seriesInfo">BCP 26</span>, <span class="seriesInfo">RFC 8126</span>, <span class="seriesInfo">DOI 10.17487/RFC8126</span>, <time datetime="2017-06" class="refDate">June 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8126">https://www.rfc-editor.org/rfc/rfc8126</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC8792">[RFC8792]</dt>
-      <dd>
+        <dd>
 <span class="refAuthor">Watsen, K.</span>, <span class="refAuthor">Auerswald, E.</span>, <span class="refAuthor">Farrel, A.</span>, and <span class="refAuthor">Q. Wu</span>, <span class="refTitle">"Handling Long Lines in Content of Internet-Drafts and RFCs"</span>, <span class="seriesInfo">RFC 8792</span>, <span class="seriesInfo">DOI 10.17487/RFC8792</span>, <time datetime="2020-06" class="refDate">June 2020</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8792">https://www.rfc-editor.org/rfc/rfc8792</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC9068">[RFC9068]</dt>
+        <dd>
+<span class="refAuthor">Bertocci, V.</span>, <span class="refTitle">"JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens"</span>, <span class="seriesInfo">RFC 9068</span>, <span class="seriesInfo">DOI 10.17487/RFC9068</span>, <time datetime="2021-10" class="refDate">October 2021</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9068">https://www.rfc-editor.org/rfc/rfc9068</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC9901">[RFC9901]</dt>
+      <dd>
+<span class="refAuthor">Fett, D.</span>, <span class="refAuthor">Yasuda, K.</span>, and <span class="refAuthor">B. Campbell</span>, <span class="refTitle">"Selective Disclosure for JSON Web Tokens"</span>, <span class="seriesInfo">RFC 9901</span>, <span class="seriesInfo">DOI 10.17487/RFC9901</span>, <time datetime="2025-11" class="refDate">November 2025</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc9901">https://www.rfc-editor.org/rfc/rfc9901</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 </dl>
 </section>
@@ -3597,7 +3747,7 @@ binding mechanism used.<a href="#section-10.4-2.3.1" class="pilcrow">¶</a></p>
 <div dir="auto" class="left"><span class="org">eBay</span></div>
 <div class="email">
 <span>Email:</span>
-<a href="mailto:aambekar@ebay.com" class="email">aambekar@ebay.com</a>
+<a href="mailto:ambekar@gmail.com" class="email">ambekar@gmail.com</a>, <a href="mailto:aambekar@ebay.com" class="email">aambekar@ebay.com</a>
 </div>
 </address>
 </section>

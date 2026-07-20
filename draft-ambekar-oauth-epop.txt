@@ -4,8 +4,8 @@
 
 Web Authorization Protocol                                    A. Ambekar
 Internet-Draft                                                      eBay
-Intended status: Standards Track                             19 May 2026
-Expires: 20 November 2026
+Intended status: Standards Track                            20 July 2026
+Expires: 21 January 2027
 
 
 JSON Web Token (JWT) Profile for OAuth 2.0 Enveloped Proof of Possession
@@ -17,17 +17,19 @@ Abstract
    This specification defines a profile for OAuth 2.0 sender-constrained
    credentials in which authorization codes, access tokens, and refresh
    tokens are cryptographically bound to the client's private key as a
-   single inseparable envelope.  The profile extends sender-constraining
-   beyond HTTP to non-HTTP transports including MQTT, Kafka, the Model
-   Context Protocol (MCP), gRPC, and SASL-based protocols such as those
-   defined in [RFC7628].  It introduces atomic proof-of-possession key
-   rotation, enabling clients to rotate key pairs without disrupting
-   active sessions, and an offline-derived client nonce (cnonce) that
-   eliminates the server-issued nonce round-trip required by existing
-   mechanisms — enabling stateless proof validation critical for non-
-   HTTP and high-throughput deployments.  Authorization servers,
-   resource servers, and clients from different vendors can implement
-   this profile interoperably.
+   single inseparable envelope.  Unlike existing mechanisms, EPOP
+   provides proof-of-possession uniformly across both JWT and opaque
+   access tokens, and across HTTP and non-HTTP transports.  The profile
+   extends sender-constraining beyond HTTP to non-HTTP transports
+   including MQTT, Kafka, the Model Context Protocol (MCP), gRPC, and
+   SASL-based protocols such as those defined in [RFC7628].  It
+   introduces atomic proof-of-possession key rotation, enabling clients
+   to rotate key pairs without disrupting active sessions, and an
+   offline-derived client nonce (cnonce) that eliminates the server-
+   issued nonce round-trip required by existing mechanisms — enabling
+   stateless proof validation critical for non-HTTP and high-throughput
+   deployments.  Authorization servers, resource servers, and clients
+   from different vendors can implement this profile interoperably.
 
 About This Document
 
@@ -61,7 +63,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 20 November 2026.
+   This Internet-Draft will expire on 21 January 2027.
 
 Copyright Notice
 
@@ -145,7 +147,7 @@ Table of Contents
      13.5.  OAuth Token Type Identifiers
      13.6.  OAuth Token Type Hint Registration
      13.7.  JWT Claims Registration
-     13.8.  JWT Type Registration
+     13.8.  Media Type Registration
      13.9.  OAuth Authorization Server Metadata
      13.10. OAuth Protected Resource Metadata
      13.11. EPOP Request Context Members Registry
@@ -172,9 +174,21 @@ Table of Contents
    parameters (htm, htu) and a server-issued nonce mechanism that
    requires an additional round-trip and imposes per-client nonce state
    management on servers — making it unsuitable for non-HTTP transports
-   such as MQTT, Kafka, gRPC, and SASL-based protocols.  No existing
-   specification provides an interoperable sender-constraining profile
-   that operates uniformly across both HTTP and non-HTTP transports.
+   such as MQTT, Kafka, gRPC, and SASL-based protocols.  DPoP's ath
+   claim binds opaque access tokens on HTTP, but provides no sender-
+   constraining path for opaque tokens on non-HTTP transports.  No
+   existing specification provides an interoperable sender-constraining
+   profile that operates uniformly across both JWT and opaque access
+   tokens, and across both HTTP and non-HTTP transports.
+
+   Opaque access tokens are widely deployed in production environments
+   for their revocability, privacy properties, and compact size.
+   Selective disclosure mechanisms such as SD-JWT ([RFC9901]) require
+   JWT structure and cannot be applied to opaque tokens.  No existing
+   sender-constraining mechanism addresses opaque access tokens outside
+   of HTTP.  This leaves a broad class of production deployments — those
+   using opaque tokens with Kafka, MQTT, gRPC, or SASL-based protocols —
+   without any interoperable proof-of-possession mechanism.
 
    A further deployment challenge with DPoP is the requirement to
    propagate two distinct HTTP headers — Authorization: DPoP <token> and
@@ -196,7 +210,9 @@ Table of Contents
    credential and proof together, is signed with the client's private
    key.  The credential and the proof of possession are a single,
    inseparable cryptographic object: there is no credential without a
-   proof.
+   proof.  The ntk claim accommodates both JWT and opaque access tokens
+   using the same envelope and validation path, providing uniform proof-
+   of-possession regardless of token format.
 
    The profile introduces a protocol-neutral rctx (Request Context)
    claim (Section 3.2) that replaces the HTTP-specific htm/htu claims of
@@ -209,7 +225,10 @@ Table of Contents
    possession key rotation, in which a client introduces a new key pair
    during a token refresh without disrupting the active session, and
    extends coverage to the full OAuth token lifecycle including token
-   revocation and token exchange.
+   revocation and token exchange.  Together, these properties make EPOP
+   the first sender-constraining profile to cover all four combinations:
+   JWT tokens over HTTP, opaque tokens over HTTP, JWT tokens over non-
+   HTTP transports, and opaque tokens over non-HTTP transports.
 
    For SASL-based protocols, this document defines OAUTHEPOP, a new SASL
    mechanism extending [RFC7628] with sender-constraining support.  All
@@ -1294,6 +1313,14 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    |           |                | inseparable credential-and-proof    |
    |           |                | object through all hops without     |
    |           |                | requiring middleware changes.       |
+   |           |                | Additionally, DPoP's ath mechanism  |
+   |           |                | for opaque access tokens is coupled |
+   |           |                | to HTTP request parameters, leaving |
+   |           |                | opaque tokens on non-HTTP           |
+   |           |                | transports without a sender-        |
+   |           |                | constraining path.  EPOP's ntk      |
+   |           |                | claim handles opaque and JWT tokens |
+   |           |                | identically across all transports.  |
    +-----------+----------------+-------------------------------------+
    | [RFC7636] | Proof Key for  | EPOP elevates PKCE from RECOMMENDED |
    |           | Code Exchange  | to REQUIRED in all authorization    |
@@ -1333,6 +1360,19 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    |           | (HKDF)         | and the client's public key,        |
    |           |                | enabling stateless offline cnonce   |
    |           |                | computation.                        |
+   +-----------+----------------+-------------------------------------+
+   | [RFC9901] | Selective      | SD-JWT provides selective           |
+   |           | Disclosure for | disclosure of JWT claims but has no |
+   |           | JWTs (SD-JWT)  | sender-constraining mechanism and   |
+   |           |                | requires JWT structure — it cannot  |
+   |           |                | be applied to opaque access tokens. |
+   |           |                | EPOP is complementary: an SD-JWT    |
+   |           |                | credential can be carried in the    |
+   |           |                | EPOP ntk claim, gaining sender-     |
+   |           |                | constraining without modifying the  |
+   |           |                | SD-JWT format.  A profile combining |
+   |           |                | EPOP and SD-JWT is left to a future |
+   |           |                | document.                           |
    +-----------+----------------+-------------------------------------+
 
                                  Table 4
@@ -1752,54 +1792,125 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
 
       Specification Document(s): Section 7 of this document
 
-13.8.  JWT Type Registration
+13.8.  Media Type Registration
 
-   This specification requests registration of the following typ header
-   parameter value in the "JSON Web Signature and Encryption Header
-   Parameters" registry established by [RFC7515], in accordance with
-   [RFC8725] Section 3.11:
+   This specification requests registration of the following media type
+   in the "Media Types" registry ([RFC6838]), following the convention
+   established by [RFC9068] for explicitly typed JWTs and the
+   recommendation in [RFC8725] Section 3.11:
 
-   Type Name: epop+jwt  Description: Enveloped Proof of Possession JWT.
+   Type name:  application
 
-      Change Controller: IETF
+   Subtype name:  epop+jwt
 
-      Specification Document(s): Section 3.1 of this document
+   Required parameters:  n/a
+
+   Optional parameters:  n/a
+
+   Encoding considerations:  binary; see [RFC7519], Section 3.1
+
+   Security considerations:  See Section 11 of this document
+
+   Interoperability considerations:  n/a
+
+   Published specification:  This document
+
+   Applications that use this media type:  OAuth 2.0 authorization
+      servers, resource servers, and clients implementing EPOP
+
+   Fragment identifier considerations:  n/a
+
+   Additional information:  Deprecated alias names for this type: n/a
+
+      Magic number(s): n/a
+
+      File extension(s): n/a
+
+      Macintosh file type code(s): n/a
+
+   Person and email address to contact for further information:  Ashwin
+      Ambekar, ambekar@gmail.com (mailto:ambekar@gmail.com)
+
+   Intended usage:  COMMON
+
+   Restrictions on usage:  none
+
+   Author:  Ashwin Ambekar
+
+   Change controller:  IETF
+
+   Provisional registration:  no
+
+   As specified in Section 3.1, the value of the typ header parameter
+   for EPOP tokens is epop+jwt, per the convention of omitting the
+   application/ prefix described in [RFC7515] Section 4.1.9.
 
 13.9.  OAuth Authorization Server Metadata
 
    This specification requests registration of the following names in
    the "OAuth Authorization Server Metadata" registry ([RFC8414]):
 
-   *  epop_supported
+   epop_supported  Metadata Description: Indicates the authorization
+      server's EPOP support posture: "disabled", "recommended", or
+      "required".
 
-   *  epop_ntk_types_supported
+   epop_ntk_types_supported  Metadata Description: JSON array of nested
+      credential (ntk) formats accepted by the server: "jwt" and/or
+      "opaque".
 
-   *  epop_key_rotation_supported
+   epop_key_rotation_supported  Metadata Description: Boolean indicating
+      whether the authorization server supports EPOP atomic key rotation
+      (Section 6.1.3.2).
 
-   *  epop_cnonce_seed
+   epop_cnonce_seed  Metadata Description: Base64url-encoded 32-byte
+      deployment seed used to scope offline client nonce (cnonce)
+      derivation.
 
-   *  epop_cnonce_step_seconds
+   epop_cnonce_step_seconds  Metadata Description: Integer time-step
+      duration, in seconds, used in client nonce (cnonce) computation
+      and verification.
 
-   *  epop_cnonce_seed_id
+   epop_cnonce_seed_id  Metadata Description: Opaque identifier for the
+      current value of epop_cnonce_seed.
 
-   *  epop_cnonce_required
+   epop_cnonce_required  Metadata Description: Boolean indicating
+      whether EPOP tokens presented to this server must include a cnonce
+      claim.
+
+   Change Controller:  IETF
+
+   Specification Document(s):  Section 8.1 of this document
 
 13.10.  OAuth Protected Resource Metadata
 
    This specification requests registration of the following names in
    the "OAuth Protected Resource Metadata" registry ([RFC9728]):
 
-   *  epop_supported
+   epop_supported  Metadata Description: Indicates the resource server's
+      EPOP support posture: "disabled", "recommended", or "required".
 
-   *  epop_ntk_types_supported
+   epop_ntk_types_supported  Metadata Description: JSON array of nested
+      credential (ntk) formats accepted by the server: "jwt" and/or
+      "opaque".
 
-   *  epop_cnonce_seed
+   epop_cnonce_seed  Metadata Description: Base64url-encoded 32-byte
+      deployment seed used to scope offline client nonce (cnonce)
+      derivation.
 
-   *  epop_cnonce_step_seconds
+   epop_cnonce_step_seconds  Metadata Description: Integer time-step
+      duration, in seconds, used in client nonce (cnonce) computation
+      and verification.
 
-   *  epop_cnonce_seed_id
+   epop_cnonce_seed_id  Metadata Description: Opaque identifier for the
+      current value of epop_cnonce_seed.
 
-   *  epop_cnonce_required
+   epop_cnonce_required  Metadata Description: Boolean indicating
+      whether EPOP tokens presented to this server must include a cnonce
+      claim.
+
+   Change Controller:  IETF
+
+   Specification Document(s):  Section 8.1 of this document
 
 13.11.  EPOP Request Context Members Registry
 
@@ -1880,6 +1991,11 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
    [RFC6749]  Hardt, D., Ed., "The OAuth 2.0 Authorization Framework",
               RFC 6749, DOI 10.17487/RFC6749, October 2012,
               <https://www.rfc-editor.org/rfc/rfc6749>.
+
+   [RFC6838]  Freed, N., Klensin, J., and T. Hansen, "Media Type
+              Specifications and Registration Procedures", BCP 13,
+              RFC 6838, DOI 10.17487/RFC6838, January 2013,
+              <https://www.rfc-editor.org/rfc/rfc6838>.
 
    [RFC7009]  Lodderstedt, T., Ed., Dronia, S., and M. Scurtescu, "OAuth
               2.0 Token Revocation", RFC 7009, DOI 10.17487/RFC7009,
@@ -1966,6 +2082,15 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
               RFCs", RFC 8792, DOI 10.17487/RFC8792, June 2020,
               <https://www.rfc-editor.org/rfc/rfc8792>.
 
+   [RFC9068]  Bertocci, V., "JSON Web Token (JWT) Profile for OAuth 2.0
+              Access Tokens", RFC 9068, DOI 10.17487/RFC9068, October
+              2021, <https://www.rfc-editor.org/rfc/rfc9068>.
+
+   [RFC9901]  Fett, D., Yasuda, K., and B. Campbell, "Selective
+              Disclosure for JSON Web Tokens", RFC 9901,
+              DOI 10.17487/RFC9901, November 2025,
+              <https://www.rfc-editor.org/rfc/rfc9901>.
+
 Acknowledgments
 
    The author thanks the OAuth Working Group for their foundational work
@@ -1980,4 +2105,4 @@ Author's Address
 
    Ashwin Ambekar
    eBay
-   Email: aambekar@ebay.com
+   Email: ambekar@gmail.com, aambekar@ebay.com
