@@ -69,7 +69,7 @@ informative:
 
 --- abstract
 
-This specification defines a profile for OAuth 2.0 sender-constrained credentials in which authorization codes, access tokens, and refresh tokens are cryptographically bound to the client's private key as a single inseparable envelope. Unlike existing mechanisms, EPOP provides proof-of-possession uniformly across both JWT and opaque access tokens, and across HTTP and non-HTTP transports. The profile extends sender-constraining beyond HTTP to non-HTTP transports including MQTT, Kafka, the Model Context Protocol (MCP), gRPC, and SASL-based protocols such as those defined in {{RFC7628}}. It introduces atomic proof-of-possession key rotation, enabling clients to rotate key pairs without disrupting active sessions, and an offline-derived client nonce (`cnonce`) that eliminates the server-issued nonce round-trip required by existing mechanisms — enabling stateless proof validation critical for non-HTTP and high-throughput deployments. Authorization servers, resource servers, and clients from different vendors can implement this profile interoperably.
+This specification defines a profile for OAuth 2.0 sender-constrained credentials in which access tokens and refresh tokens are cryptographically bound to the client's private key as a single inseparable envelope. Authorization code flows are also covered: the client declares its public key binding via `cnf.jkt` in the EPOP token presented at the token endpoint, ensuring the authorization code can only be exchanged by the key-holding client; the code itself travels as the standard `code` form parameter. Unlike existing mechanisms, EPOP provides proof-of-possession uniformly across both JWT and opaque access tokens, and across HTTP and non-HTTP transports. The profile extends sender-constraining beyond HTTP to non-HTTP transports including MQTT, Kafka, the Model Context Protocol (MCP), gRPC, and SASL-based protocols such as those defined in {{RFC7628}}. It introduces atomic proof-of-possession key rotation, enabling clients to rotate key pairs without disrupting active sessions, and an offline-derived client nonce (`cnonce`) that eliminates the server-issued nonce round-trip required by existing mechanisms — enabling stateless proof validation critical for non-HTTP and high-throughput deployments. Authorization servers, resource servers, and clients from different vendors can implement this profile interoperably.
 
 --- middle
 
@@ -83,7 +83,7 @@ Opaque access tokens are widely deployed in production environments for their re
 
 A further deployment challenge with DPoP is the requirement to propagate two distinct HTTP headers — `Authorization: DPoP <token>` and `DPoP: <proof>` — as an inseparable pair through every layer of a distributed system. API gateways, reverse proxies, and service-mesh sidecars must each be updated to recognize and forward the `DPoP` header; many intermediaries strip non-standard headers by default. Every resource server onboarded to DPoP must separately implement dual-header awareness and proof validation. A single hop that discards the `DPoP` header silently invalidates the proof-of-possession guarantee for the entire request chain, creating a widespread integration burden across heterogeneous microservice deployments.
 
-This document defines the Enveloped Proof of Possession (EPOP) profile for OAuth 2.0 credentials. In this profile, the OAuth credential — authorization code, access token, or refresh token — is nested within the `ntk` (Nested Token) claim ({{token-payload}}) of a signed JSON Web Token (JWT) {{RFC7519}} envelope. The entire structure, credential and proof together, is signed with the client's private key. The credential and the proof of possession are a single, inseparable cryptographic object: there is no credential without a proof. The `ntk` claim accommodates both JWT and opaque access tokens using the same envelope and validation path, providing uniform proof-of-possession regardless of token format.
+This document defines the Enveloped Proof of Possession (EPOP) profile for OAuth 2.0 credentials. For token-based flows, the OAuth credential — access token or refresh token — is nested within the `ntk` (Nested Token) claim ({{token-payload}}) of a signed JSON Web Token (JWT) {{RFC7519}} envelope; the credential and the proof of possession are a single, inseparable cryptographic object signed with the client's private key. In authorization code flows, the code travels as the standard `code` form parameter while the EPOP token carries only `cnf.jkt`, declaring the client's key binding before the AS issues any tokens. The `ntk` claim accommodates both JWT and opaque access tokens using the same envelope and validation path, providing uniform proof-of-possession regardless of token format.
 
 The profile introduces a protocol-neutral `rctx` (Request Context) claim ({{token-payload}}) that replaces the HTTP-specific `htm`/`htu` claims of DPoP, enabling EPOP tokens to operate over any transport without protocol-specific adaptation. An offline-derived client nonce (`cnonce`) ({{cnonce}}) computed from public inputs eliminates the server-issued nonce round-trip required by {{RFC9449}}, enabling stateless proof validation particularly suited to non-HTTP and high-throughput transports. The profile further defines atomic proof-of-possession key rotation, in which a client introduces a new key pair during a token refresh without disrupting the active session, and extends coverage to the full OAuth token lifecycle including token revocation and token exchange. Together, these properties make EPOP the first sender-constraining profile to cover all four combinations: JWT tokens over HTTP, opaque tokens over HTTP, JWT tokens over non-HTTP transports, and opaque tokens over non-HTTP transports.
 
@@ -192,7 +192,7 @@ Example header:
 `cnf.jkt`
 : CONDITIONAL. SHA-256 JWK Thumbprint ({{RFC7638}}) of the client's public key. REQUIRED in authorization code exchange and in the inner envelope of a key rotation request. SHOULD be omitted on routine resource access and simple refresh where the key is already bound to the token.
 
-Example payload:
+Example payload (resource access):
 
 ~~~json
 {
@@ -202,11 +202,7 @@ Example payload:
   "cnonce": "<base64url-hmac-value>",
   "rctx": {
     "res": "https://api.example.com/orders",
-    "method": "GET",
-    "id": "req_5521"
-  },
-  "cnf": {
-    "jkt": "<sha256-thumbprint-of-public-key>"
+    "method": "GET"
   }
 }
 ~~~
@@ -814,13 +810,25 @@ for any `t` ∈ `{T-1, T, T+1}`. This window absorbs clock skew of up to one ste
 
 When `epop_cnonce_seed` is rotated, the server MUST update `epop_cnonce_seed_id` simultaneously so that clients re-derive `key_material`.
 
+## Seed Domain Isolation {#cnonce-seed-domain}
+
+The optional `seed` parameter scopes `key_material` derivation so that cnonce values produced under one seed cannot validate against a server holding a different seed. This property is most valuable when the AS and RS each hold their own independently chosen seed.
+
+Because every EPOP token is destination-bound — tied to a single server via `rctx` — there is no correctness requirement for the AS and RS to share a seed. Using distinct seeds provides the following security benefits:
+
+- **Cross-domain replay resistance.** A cnonce computed for the AS domain cannot satisfy verification at the RS, and vice versa, even within the same time-step window. This supplements the `rctx` check with a cryptographic barrier at the key-derivation level.
+- **Independent seed rotation.** Each server can rotate its seed on its own schedule without coordinating with the other, reducing operational coupling between the AS and RS.
+- **Blast-radius limitation.** If a seed value is inadvertently exposed (e.g., via a misconfigured metadata endpoint), only the cnonce namespace of that server is affected; the other server's namespace remains intact.
+
+Sharing a seed across the AS and RS confers none of these benefits and is NOT RECOMMENDED. Both servers SHOULD rotate `epop_cnonce_seed` periodically to further limit the window in which precomputed cnonce values remain valid.
+
 # Discovery Metadata {#discovery}
 
 Authorization Servers that support EPOP MUST publish their capabilities in the OAuth Authorization Server Metadata document ({{RFC8414}}), available at `/.well-known/oauth-authorization-server` (or `/.well-known/openid-configuration` for OpenID Connect providers). Resource Servers publish EPOP capabilities in the OAuth Protected Resource Metadata document ({{RFC9728}}), available at `/.well-known/oauth-protected-resource`.
 
 ## Metadata Fields {#epop-metadata-fields}
 
-The `epop_cnonce_seed`, `epop_cnonce_seed_id`, and `epop_cnonce_step_seconds` values MUST be identical in the AS and RS discovery documents. Clients SHOULD validate this consistency on startup and after any seed rotation.
+Each server publishes its own `epop_cnonce_seed`, `epop_cnonce_seed_id`, and `epop_cnonce_step_seconds` values independently. Clients MUST read the target server's discovery document and use the values from that document when deriving `cnonce` for requests to that server. Because EPOP tokens are destination-bound — each is tied to a single endpoint via `rctx` — the AS and RS never need to verify the same cnonce value. Using distinct seeds for the AS and RS improves security by isolating their cnonce derivation namespaces and providing stronger protection against precomputed cnonce attacks: an attacker who learns one server's seed gains no advantage against the other. AS and RS SHOULD also rotate `epop_cnonce_seed` periodically for further protection against precomputation; see {{cnonce-seed-domain}}.
 
 `epop_supported`
 : String; AS and RS. REQUIRED when EPOP is active. Server EPOP posture: `"disabled"` — clients MUST NOT send EPOP tokens; `"recommended"` — EPOP accepted but non-EPOP requests also accepted; `"required"` — requests without a valid EPOP token MUST be rejected.
@@ -835,13 +843,13 @@ The `epop_cnonce_seed`, `epop_cnonce_seed_id`, and `epop_cnonce_step_seconds` va
 : Boolean; AS and RS. Default: `false`. When `true`, the server MUST reject EPOP tokens that omit `cnonce`. Clients MUST include `cnonce` if either the AS or RS sets this to `true`.
 
 `epop_cnonce_step_seconds`
-: Integer; AS and RS. REQUIRED when `epop_cnonce_required` is `true`. Time-step duration in seconds; both client and server compute `T = floor(utc_now() / epop_cnonce_step_seconds)`. MUST be identical in AS and RS documents.
+: Integer; AS and RS. REQUIRED when `epop_cnonce_required` is `true`. Time-step duration in seconds; both client and server compute `T = floor(utc_now() / epop_cnonce_step_seconds)`. Clients use the value from the target server's discovery document. AS and RS SHOULD use the same value to simplify operational management; divergent step sizes are functionally correct but weaken the replay bound at whichever server uses the longer window.
 
 `epop_cnonce_seed`
-: String (Base64URL, 32 bytes); AS and RS. OPTIONAL. Namespace discriminator for multi-tenant deployments; mixed into the per-client HKDF derivation so cnonce values across tenants are non-interchangeable. Not a secret. MUST be identical in AS and RS documents when present. Rotated in coordination with `epop_cnonce_seed_id`.
+: String (Base64URL, 32 bytes); AS and RS. OPTIONAL. Server-specific namespace discriminator for `cnonce` derivation; improves security by making cnonce values non-interchangeable across servers and limiting the blast radius of seed exposure. Not a secret. AS and RS SHOULD use distinct seeds; see {{cnonce-seed-domain}}. Rotated in coordination with `epop_cnonce_seed_id`.
 
 `epop_cnonce_seed_id`
-: String; AS and RS. REQUIRED when `epop_cnonce_seed` is present; OPTIONAL otherwise. Opaque identifier for the current `epop_cnonce_seed`. Clients MUST cache the discovery document keyed on this value and re-derive `key_material` only when it changes. MUST be identical in AS and RS documents.
+: String; AS and RS. REQUIRED when `epop_cnonce_seed` is present; OPTIONAL otherwise. Opaque identifier for the current `epop_cnonce_seed` on this server. Clients MUST cache each server's discovery document keyed on this value and re-derive `key_material` only when it changes.
 
 ## AS Metadata Example {#as-metadata-example}
 
@@ -854,8 +862,8 @@ The `epop_cnonce_seed`, `epop_cnonce_seed_id`, and `epop_cnonce_step_seconds` va
   "epop_key_rotation_supported": true,
   "epop_cnonce_required": true,
   "epop_cnonce_step_seconds": 30,
-  "epop_cnonce_seed": "<base64url-32-bytes>",
-  "epop_cnonce_seed_id": "seed-2026-q2"
+  "epop_cnonce_seed": "<base64url-32-bytes-as>",
+  "epop_cnonce_seed_id": "as-seed-20260722T0600Z"
 }
 ~~~
 
@@ -869,8 +877,8 @@ The `epop_cnonce_seed`, `epop_cnonce_seed_id`, and `epop_cnonce_step_seconds` va
   "epop_ntk_types_supported": ["jwt", "opaque"],
   "epop_cnonce_required": true,
   "epop_cnonce_step_seconds": 30,
-  "epop_cnonce_seed": "<base64url-32-bytes>",
-  "epop_cnonce_seed_id": "seed-2026-q2"
+  "epop_cnonce_seed": "<base64url-32-bytes-rs>",
+  "epop_cnonce_seed_id": "rs-seed-20260722T0800Z"
 }
 ~~~
 
@@ -879,7 +887,7 @@ The `epop_cnonce_seed`, `epop_cnonce_seed_id`, and `epop_cnonce_step_seconds` va
 | RFC | Title | Relationship |
 |:---|:---|:---|
 | {{RFC7628}} | A Set of Simple Authentication and Security Layer (SASL) Mechanisms for OAuth | EPOP extends RFC 7628 by introducing `EPOP` as a new OAuth authentication type for the SASL `auth` field and defining `OAUTHEPOP` as a new SASL mechanism. All behaviors defined in RFC 7628 remain in effect; this document adds only the `auth=EPOP` field value and the key binding check that `OAUTHBEARER` servers apply when they encounter it. |
-| {{RFC9449}} | OAuth 2.0 Demonstrating Proof of Possession (DPoP) | EPOP generalizes the DPoP proof model: replaces `htm`/`htu` with `rctx` for protocol agnosticism; replaces the `ath` hash with `ntk` embedding so credential and proof travel as one object; extends coverage to authorization codes and refresh tokens; adds atomic key rotation and the offline `cnonce`. Additionally, DPoP's requirement to carry two coordinated HTTP headers (`Authorization` and `DPoP`) imposes a propagation burden on every intermediary and resource server in a distributed system; EPOP eliminates this by enveloping the proof inside the token, so a single `Authorization` header carries the inseparable credential-and-proof object through all hops without requiring middleware changes. Additionally, DPoP's `ath` mechanism for opaque access tokens is coupled to HTTP request parameters, leaving opaque tokens on non-HTTP transports without a sender-constraining path. EPOP's `ntk` claim handles opaque and JWT tokens identically across all transports. |
+| {{RFC9449}} | OAuth 2.0 Demonstrating Proof of Possession (DPoP) | EPOP generalizes the DPoP proof model: replaces `htm`/`htu` with `rctx` for protocol agnosticism; replaces the `ath` hash with `ntk` embedding so credential and proof travel as one object; extends coverage to refresh tokens and to authorization code flows via `cnf.jkt` key binding at the token endpoint (authorization codes travel as standard `code` form parameters and are never embedded in `ntk`); adds atomic key rotation and the offline `cnonce`. Additionally, DPoP's requirement to carry two coordinated HTTP headers (`Authorization` and `DPoP`) imposes a propagation burden on every intermediary and resource server in a distributed system; EPOP eliminates this by enveloping the proof inside the token, so a single `Authorization` header carries the inseparable credential-and-proof object through all hops without requiring middleware changes. Additionally, DPoP's `ath` mechanism for opaque access tokens is coupled to HTTP request parameters, leaving opaque tokens on non-HTTP transports without a sender-constraining path. EPOP's `ntk` claim handles opaque and JWT tokens identically across all transports. |
 | {{RFC7636}} | Proof Key for Code Exchange (PKCE) | EPOP elevates PKCE from RECOMMENDED to REQUIRED in all authorization code flows. |
 | {{RFC8414}} | OAuth 2.0 Authorization Server Metadata | EPOP adds new discovery fields to the well-known document: `epop_supported`, `epop_ntk_types_supported`, `epop_key_rotation_supported`, and the `epop_cnonce_*` family. |
 | {{RFC7638}} | JSON Web Key (JWK) Thumbprint | EPOP uses the SHA-256 JWK thumbprint (`cnf.jkt`) as its primary key binding primitive — embedded in every issued token and checked by the RS as its main defense against token substitution. |
