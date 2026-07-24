@@ -7,7 +7,7 @@
 <title>JSON Web Token (JWT) Profile for OAuth 2.0 Enveloped Proof of Possession (EPOP)</title>
 <meta content="Ashwin Ambekar" name="author">
 <meta content="
-       This specification defines a profile for OAuth 2.0 sender-constrained credentials in which authorization codes, access tokens, and refresh tokens are cryptographically bound to the client's private key as a single inseparable envelope. Unlike existing mechanisms, EPOP provides proof-of-possession uniformly across both JWT and opaque access tokens, and across HTTP and non-HTTP transports. The profile extends sender-constraining beyond HTTP to non-HTTP transports including MQTT, Kafka, the Model Context Protocol (MCP), gRPC, and SASL-based protocols such as those defined in  . It introduces atomic proof-of-possession key rotation, enabling clients to rotate key pairs without disrupting active sessions, and an offline-derived client nonce ( cnonce ) that eliminates the server-issued nonce round-trip required by existing mechanisms — enabling stateless proof validation critical for non-HTTP and high-throughput deployments. Authorization servers, resource servers, and clients from different vendors can implement this profile interoperably. 
+       This specification defines a profile for OAuth 2.0 sender-constrained credentials in which access tokens and refresh tokens are cryptographically bound to the client's private key as a single inseparable envelope. Authorization code flows are also covered: the client declares its public key binding via  cnf.jkt  in the EPOP token presented at the token endpoint, ensuring the authorization code can only be exchanged by the key-holding client; the code itself travels as the standard  code  form parameter. Unlike existing mechanisms, EPOP provides proof-of-possession uniformly across both JWT and opaque access tokens, and across HTTP and non-HTTP transports. The profile extends sender-constraining beyond HTTP to non-HTTP transports including MQTT, Kafka, the Model Context Protocol (MCP), gRPC, and SASL-based protocols such as those defined in  . It introduces atomic proof-of-possession key rotation, enabling clients to rotate key pairs without disrupting active sessions, and an offline-derived client nonce ( cnonce ) that eliminates the server-issued nonce round-trip required by existing mechanisms — enabling stateless proof validation critical for non-HTTP and high-throughput deployments. Authorization servers, resource servers, and clients from different vendors can implement this profile interoperably. 
     " name="description">
 <meta content="xml2rfc 3.34.0" name="generator">
 <meta content="EPOP" name="keyword">
@@ -1054,7 +1054,7 @@ svg {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Ambekar</td>
-<td class="center">Expires 21 January 2027</td>
+<td class="center">Expires 25 January 2027</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1067,12 +1067,12 @@ svg {
 <dd class="internet-draft">draft-ambekar-oauth-epop-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-07-20" class="published">20 July 2026</time>
+<time datetime="2026-07-24" class="published">24 July 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Standards Track</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2027-01-21">21 January 2027</time></dd>
+<dd class="expires"><time datetime="2027-01-25">25 January 2027</time></dd>
 <dt class="label-authors">Author:</dt>
 <dd class="authors">
 <div class="author">
@@ -1085,7 +1085,7 @@ svg {
 <h1 id="title">JSON Web Token (JWT) Profile for OAuth 2.0 Enveloped Proof of Possession (EPOP)</h1>
 <section id="section-abstract">
       <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
-<p id="section-abstract-1">This specification defines a profile for OAuth 2.0 sender-constrained credentials in which authorization codes, access tokens, and refresh tokens are cryptographically bound to the client's private key as a single inseparable envelope. Unlike existing mechanisms, EPOP provides proof-of-possession uniformly across both JWT and opaque access tokens, and across HTTP and non-HTTP transports. The profile extends sender-constraining beyond HTTP to non-HTTP transports including MQTT, Kafka, the Model Context Protocol (MCP), gRPC, and SASL-based protocols such as those defined in <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span>. It introduces atomic proof-of-possession key rotation, enabling clients to rotate key pairs without disrupting active sessions, and an offline-derived client nonce (<code>cnonce</code>) that eliminates the server-issued nonce round-trip required by existing mechanisms — enabling stateless proof validation critical for non-HTTP and high-throughput deployments. Authorization servers, resource servers, and clients from different vendors can implement this profile interoperably.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+<p id="section-abstract-1">This specification defines a profile for OAuth 2.0 sender-constrained credentials in which access tokens and refresh tokens are cryptographically bound to the client's private key as a single inseparable envelope. Authorization code flows are also covered: the client declares its public key binding via <code>cnf.jkt</code> in the EPOP token presented at the token endpoint, ensuring the authorization code can only be exchanged by the key-holding client; the code itself travels as the standard <code>code</code> form parameter. Unlike existing mechanisms, EPOP provides proof-of-possession uniformly across both JWT and opaque access tokens, and across HTTP and non-HTTP transports. The profile extends sender-constraining beyond HTTP to non-HTTP transports including MQTT, Kafka, the Model Context Protocol (MCP), gRPC, and SASL-based protocols such as those defined in <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span>. It introduces atomic proof-of-possession key rotation, enabling clients to rotate key pairs without disrupting active sessions, and an offline-derived client nonce (<code>cnonce</code>) that eliminates the server-issued nonce round-trip required by existing mechanisms — enabling stateless proof validation critical for non-HTTP and high-throughput deployments. Authorization servers, resource servers, and clients from different vendors can implement this profile interoperably.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
 </section>
 <section class="note rfcEditorRemove" id="section-note.1">
       <h2 id="name-about-this-document">
@@ -1122,7 +1122,7 @@ svg {
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 21 January 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 25 January 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1255,6 +1255,9 @@ svg {
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.4">
                 <p id="section-toc.1-1.7.2.4.1"><a href="#section-7.4" class="auto internal xref">7.4</a>.  <a href="#name-verification" class="internal xref">Verification</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.5">
+                <p id="section-toc.1-1.7.2.5.1"><a href="#section-7.5" class="auto internal xref">7.5</a>.  <a href="#name-seed-domain-isolation" class="internal xref">Seed Domain Isolation</a></p>
 </li>
             </ul>
 </li>
@@ -1418,7 +1421,7 @@ svg {
 <p id="section-1-2">Sender-constraining mechanisms address this by cryptographically binding a token to the client's key pair so that possession of the token alone is insufficient to use it. Demonstrating Proof of Possession (DPoP) <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span> introduced sender-constraining for HTTP-based OAuth flows. However, DPoP relies on HTTP-specific request parameters (<code>htm</code>, <code>htu</code>) and a server-issued nonce mechanism that requires an additional round-trip and imposes per-client nonce state management on servers — making it unsuitable for non-HTTP transports such as MQTT, Kafka, gRPC, and SASL-based protocols. DPoP's <code>ath</code> claim binds opaque access tokens on HTTP, but provides no sender-constraining path for opaque tokens on non-HTTP transports. No existing specification provides an interoperable sender-constraining profile that operates uniformly across both JWT and opaque access tokens, and across both HTTP and non-HTTP transports.<a href="#section-1-2" class="pilcrow">¶</a></p>
 <p id="section-1-3">Opaque access tokens are widely deployed in production environments for their revocability, privacy properties, and compact size. Selective disclosure mechanisms such as SD-JWT (<span>[<a href="#RFC9901" class="cite xref">RFC9901</a>]</span>) require JWT structure and cannot be applied to opaque tokens. No existing sender-constraining mechanism addresses opaque access tokens outside of HTTP. This leaves a broad class of production deployments — those using opaque tokens with Kafka, MQTT, gRPC, or SASL-based protocols — without any interoperable proof-of-possession mechanism.<a href="#section-1-3" class="pilcrow">¶</a></p>
 <p id="section-1-4">A further deployment challenge with DPoP is the requirement to propagate two distinct HTTP headers — <code>Authorization: DPoP &lt;token&gt;</code> and <code>DPoP: &lt;proof&gt;</code> — as an inseparable pair through every layer of a distributed system. API gateways, reverse proxies, and service-mesh sidecars must each be updated to recognize and forward the <code>DPoP</code> header; many intermediaries strip non-standard headers by default. Every resource server onboarded to DPoP must separately implement dual-header awareness and proof validation. A single hop that discards the <code>DPoP</code> header silently invalidates the proof-of-possession guarantee for the entire request chain, creating a widespread integration burden across heterogeneous microservice deployments.<a href="#section-1-4" class="pilcrow">¶</a></p>
-<p id="section-1-5">This document defines the Enveloped Proof of Possession (EPOP) profile for OAuth 2.0 credentials. In this profile, the OAuth credential — authorization code, access token, or refresh token — is nested within the <code>ntk</code> (Nested Token) claim (<a href="#token-payload" class="auto internal xref">Section 3.2</a>) of a signed JSON Web Token (JWT) <span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span> envelope. The entire structure, credential and proof together, is signed with the client's private key. The credential and the proof of possession are a single, inseparable cryptographic object: there is no credential without a proof. The <code>ntk</code> claim accommodates both JWT and opaque access tokens using the same envelope and validation path, providing uniform proof-of-possession regardless of token format.<a href="#section-1-5" class="pilcrow">¶</a></p>
+<p id="section-1-5">This document defines the Enveloped Proof of Possession (EPOP) profile for OAuth 2.0 credentials. For token-based flows, the OAuth credential — access token or refresh token — is nested within the <code>ntk</code> (Nested Token) claim (<a href="#token-payload" class="auto internal xref">Section 3.2</a>) of a signed JSON Web Token (JWT) <span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span> envelope; the credential and the proof of possession are a single, inseparable cryptographic object signed with the client's private key. In authorization code flows, the code travels as the standard <code>code</code> form parameter while the EPOP token carries only <code>cnf.jkt</code>, declaring the client's key binding before the AS issues any tokens. The <code>ntk</code> claim accommodates both JWT and opaque access tokens using the same envelope and validation path, providing uniform proof-of-possession regardless of token format.<a href="#section-1-5" class="pilcrow">¶</a></p>
 <p id="section-1-6">The profile introduces a protocol-neutral <code>rctx</code> (Request Context) claim (<a href="#token-payload" class="auto internal xref">Section 3.2</a>) that replaces the HTTP-specific <code>htm</code>/<code>htu</code> claims of DPoP, enabling EPOP tokens to operate over any transport without protocol-specific adaptation. An offline-derived client nonce (<code>cnonce</code>) (<a href="#cnonce" class="auto internal xref">Section 7</a>) computed from public inputs eliminates the server-issued nonce round-trip required by <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>, enabling stateless proof validation particularly suited to non-HTTP and high-throughput transports. The profile further defines atomic proof-of-possession key rotation, in which a client introduces a new key pair during a token refresh without disrupting the active session, and extends coverage to the full OAuth token lifecycle including token revocation and token exchange. Together, these properties make EPOP the first sender-constraining profile to cover all four combinations: JWT tokens over HTTP, opaque tokens over HTTP, JWT tokens over non-HTTP transports, and opaque tokens over non-HTTP transports.<a href="#section-1-6" class="pilcrow">¶</a></p>
 <p id="section-1-7">For SASL-based protocols, this document defines <code>OAUTHEPOP</code>, a new SASL mechanism extending <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> with sender-constraining support. All behaviors defined in <span>[<a href="#RFC7628" class="cite xref">RFC7628</a>]</span> remain in effect; this document adds only the EPOP-specific authentication type and key binding verification.<a href="#section-1-7" class="pilcrow">¶</a></p>
 </section>
@@ -1599,7 +1602,7 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
 </dd>
         <dd class="break"></dd>
 </dl>
-<p id="section-3.2-2">Example payload:<a href="#section-3.2-2" class="pilcrow">¶</a></p>
+<p id="section-3.2-2">Example payload (resource access):<a href="#section-3.2-2" class="pilcrow">¶</a></p>
 <div class="lang-json sourcecode" id="section-3.2-3">
 <pre>
 {
@@ -1609,11 +1612,7 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
   "cnonce": "&lt;base64url-hmac-value&gt;",
   "rctx": {
     "res": "https://api.example.com/orders",
-    "method": "GET",
-    "id": "req_5521"
-  },
-  "cnf": {
-    "jkt": "&lt;sha256-thumbprint-of-public-key&gt;"
+    "method": "GET"
   }
 }
 </pre><a href="#section-3.2-3" class="pilcrow">¶</a>
@@ -2543,6 +2542,27 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
 <p id="section-7.4-4">When <code>epop_cnonce_seed</code> is rotated, the server <span class="bcp14">MUST</span> update <code>epop_cnonce_seed_id</code> simultaneously so that clients re-derive <code>key_material</code>.<a href="#section-7.4-4" class="pilcrow">¶</a></p>
 </section>
 </div>
+<div id="cnonce-seed-domain">
+<section id="section-7.5">
+        <h3 id="name-seed-domain-isolation">
+<a href="#section-7.5" class="section-number selfRef">7.5. </a><a href="#name-seed-domain-isolation" class="section-name selfRef">Seed Domain Isolation</a>
+        </h3>
+<p id="section-7.5-1">The optional <code>seed</code> parameter scopes <code>key_material</code> derivation so that cnonce values produced under one seed cannot validate against a server holding a different seed. This property is most valuable when the AS and RS each hold their own independently chosen seed.<a href="#section-7.5-1" class="pilcrow">¶</a></p>
+<p id="section-7.5-2">Because every EPOP token is destination-bound — tied to a single server via <code>rctx</code> — there is no correctness requirement for the AS and RS to share a seed. Using distinct seeds provides the following security benefits:<a href="#section-7.5-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-7.5-3.1">
+            <p id="section-7.5-3.1.1"><strong>Cross-domain replay resistance.</strong> A cnonce computed for the AS domain cannot satisfy verification at the RS, and vice versa, even within the same time-step window. This supplements the <code>rctx</code> check with a cryptographic barrier at the key-derivation level.<a href="#section-7.5-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.5-3.2">
+            <p id="section-7.5-3.2.1"><strong>Independent seed rotation.</strong> Each server can rotate its seed on its own schedule without coordinating with the other, reducing operational coupling between the AS and RS.<a href="#section-7.5-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.5-3.3">
+            <p id="section-7.5-3.3.1"><strong>Blast-radius limitation.</strong> If a seed value is inadvertently exposed (e.g., via a misconfigured metadata endpoint), only the cnonce namespace of that server is affected; the other server's namespace remains intact.<a href="#section-7.5-3.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-7.5-4">Sharing a seed across the AS and RS confers none of these benefits and is <span class="bcp14">NOT RECOMMENDED</span>. Both servers <span class="bcp14">SHOULD</span> rotate <code>epop_cnonce_seed</code> periodically to further limit the window in which precomputed cnonce values remain valid.<a href="#section-7.5-4" class="pilcrow">¶</a></p>
+</section>
+</div>
 </section>
 </div>
 <div id="discovery">
@@ -2556,7 +2576,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
         <h3 id="name-metadata-fields">
 <a href="#section-8.1" class="section-number selfRef">8.1. </a><a href="#name-metadata-fields" class="section-name selfRef">Metadata Fields</a>
         </h3>
-<p id="section-8.1-1">The <code>epop_cnonce_seed</code>, <code>epop_cnonce_seed_id</code>, and <code>epop_cnonce_step_seconds</code> values <span class="bcp14">MUST</span> be identical in the AS and RS discovery documents. Clients <span class="bcp14">SHOULD</span> validate this consistency on startup and after any seed rotation.<a href="#section-8.1-1" class="pilcrow">¶</a></p>
+<p id="section-8.1-1">Each server publishes its own <code>epop_cnonce_seed</code>, <code>epop_cnonce_seed_id</code>, and <code>epop_cnonce_step_seconds</code> values independently. Clients <span class="bcp14">MUST</span> read the target server's discovery document and use the values from that document when deriving <code>cnonce</code> for requests to that server. Because EPOP tokens are destination-bound — each is tied to a single endpoint via <code>rctx</code> — the AS and RS never need to verify the same cnonce value. Using distinct seeds for the AS and RS improves security by isolating their cnonce derivation namespaces and providing stronger protection against precomputed cnonce attacks: an attacker who learns one server's seed gains no advantage against the other. AS and RS <span class="bcp14">SHOULD</span> also rotate <code>epop_cnonce_seed</code> periodically for further protection against precomputation; see <a href="#cnonce-seed-domain" class="auto internal xref">Section 7.5</a>.<a href="#section-8.1-1" class="pilcrow">¶</a></p>
 <span class="break"></span><dl class="dlParallel" id="section-8.1-2">
           <dt id="section-8.1-2.1"><code>epop_supported</code></dt>
           <dd style="margin-left: 1.5em" id="section-8.1-2.2">
@@ -2580,17 +2600,17 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
           <dd class="break"></dd>
 <dt id="section-8.1-2.9"><code>epop_cnonce_step_seconds</code></dt>
           <dd style="margin-left: 1.5em" id="section-8.1-2.10">
-            <p id="section-8.1-2.10.1">Integer; AS and RS. <span class="bcp14">REQUIRED</span> when <code>epop_cnonce_required</code> is <code>true</code>. Time-step duration in seconds; both client and server compute <code>T = floor(utc_now() / epop_cnonce_step_seconds)</code>. <span class="bcp14">MUST</span> be identical in AS and RS documents.<a href="#section-8.1-2.10.1" class="pilcrow">¶</a></p>
+            <p id="section-8.1-2.10.1">Integer; AS and RS. <span class="bcp14">REQUIRED</span> when <code>epop_cnonce_required</code> is <code>true</code>. Time-step duration in seconds; both client and server compute <code>T = floor(utc_now() / epop_cnonce_step_seconds)</code>. Clients use the value from the target server's discovery document. AS and RS <span class="bcp14">SHOULD</span> use the same value to simplify operational management; divergent step sizes are functionally correct but weaken the replay bound at whichever server uses the longer window.<a href="#section-8.1-2.10.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-8.1-2.11"><code>epop_cnonce_seed</code></dt>
           <dd style="margin-left: 1.5em" id="section-8.1-2.12">
-            <p id="section-8.1-2.12.1">String (Base64URL, 32 bytes); AS and RS. <span class="bcp14">OPTIONAL</span>. Namespace discriminator for multi-tenant deployments; mixed into the per-client HKDF derivation so cnonce values across tenants are non-interchangeable. Not a secret. <span class="bcp14">MUST</span> be identical in AS and RS documents when present. Rotated in coordination with <code>epop_cnonce_seed_id</code>.<a href="#section-8.1-2.12.1" class="pilcrow">¶</a></p>
+            <p id="section-8.1-2.12.1">String (Base64URL, 32 bytes); AS and RS. <span class="bcp14">OPTIONAL</span>. Server-specific namespace discriminator for <code>cnonce</code> derivation; improves security by making cnonce values non-interchangeable across servers and limiting the blast radius of seed exposure. Not a secret. AS and RS <span class="bcp14">SHOULD</span> use distinct seeds; see <a href="#cnonce-seed-domain" class="auto internal xref">Section 7.5</a>. Rotated in coordination with <code>epop_cnonce_seed_id</code>.<a href="#section-8.1-2.12.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-8.1-2.13"><code>epop_cnonce_seed_id</code></dt>
           <dd style="margin-left: 1.5em" id="section-8.1-2.14">
-            <p id="section-8.1-2.14.1">String; AS and RS. <span class="bcp14">REQUIRED</span> when <code>epop_cnonce_seed</code> is present; <span class="bcp14">OPTIONAL</span> otherwise. Opaque identifier for the current <code>epop_cnonce_seed</code>. Clients <span class="bcp14">MUST</span> cache the discovery document keyed on this value and re-derive <code>key_material</code> only when it changes. <span class="bcp14">MUST</span> be identical in AS and RS documents.<a href="#section-8.1-2.14.1" class="pilcrow">¶</a></p>
+            <p id="section-8.1-2.14.1">String; AS and RS. <span class="bcp14">REQUIRED</span> when <code>epop_cnonce_seed</code> is present; <span class="bcp14">OPTIONAL</span> otherwise. Opaque identifier for the current <code>epop_cnonce_seed</code> on this server. Clients <span class="bcp14">MUST</span> cache each server's discovery document keyed on this value and re-derive <code>key_material</code> only when it changes.<a href="#section-8.1-2.14.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
@@ -2611,8 +2631,8 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
   "epop_key_rotation_supported": true,
   "epop_cnonce_required": true,
   "epop_cnonce_step_seconds": 30,
-  "epop_cnonce_seed": "&lt;base64url-32-bytes&gt;",
-  "epop_cnonce_seed_id": "seed-2026-q2"
+  "epop_cnonce_seed": "&lt;base64url-32-bytes-as&gt;",
+  "epop_cnonce_seed_id": "as-seed-20260722T0600Z"
 }
 </pre><a href="#section-8.2-1" class="pilcrow">¶</a>
 </div>
@@ -2632,8 +2652,8 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
   "epop_ntk_types_supported": ["jwt", "opaque"],
   "epop_cnonce_required": true,
   "epop_cnonce_step_seconds": 30,
-  "epop_cnonce_seed": "&lt;base64url-32-bytes&gt;",
-  "epop_cnonce_seed_id": "seed-2026-q2"
+  "epop_cnonce_seed": "&lt;base64url-32-bytes-rs&gt;",
+  "epop_cnonce_seed_id": "rs-seed-20260722T0800Z"
 }
 </pre><a href="#section-8.3-1" class="pilcrow">¶</a>
 </div>
@@ -2668,7 +2688,7 @@ cnonce == BASE64URL(HMAC-SHA256(key_material, UTF8(jti) || UINT64BE(t)))
               <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>
 </td>
             <td class="text-left" rowspan="1" colspan="1">OAuth 2.0 Demonstrating Proof of Possession (DPoP)</td>
-            <td class="text-left" rowspan="1" colspan="1">EPOP generalizes the DPoP proof model: replaces <code>htm</code>/<code>htu</code> with <code>rctx</code> for protocol agnosticism; replaces the <code>ath</code> hash with <code>ntk</code> embedding so credential and proof travel as one object; extends coverage to authorization codes and refresh tokens; adds atomic key rotation and the offline <code>cnonce</code>. Additionally, DPoP's requirement to carry two coordinated HTTP headers (<code>Authorization</code> and <code>DPoP</code>) imposes a propagation burden on every intermediary and resource server in a distributed system; EPOP eliminates this by enveloping the proof inside the token, so a single <code>Authorization</code> header carries the inseparable credential-and-proof object through all hops without requiring middleware changes. Additionally, DPoP's <code>ath</code> mechanism for opaque access tokens is coupled to HTTP request parameters, leaving opaque tokens on non-HTTP transports without a sender-constraining path. EPOP's <code>ntk</code> claim handles opaque and JWT tokens identically across all transports.</td>
+            <td class="text-left" rowspan="1" colspan="1">EPOP generalizes the DPoP proof model: replaces <code>htm</code>/<code>htu</code> with <code>rctx</code> for protocol agnosticism; replaces the <code>ath</code> hash with <code>ntk</code> embedding so credential and proof travel as one object; extends coverage to refresh tokens and to authorization code flows via <code>cnf.jkt</code> key binding at the token endpoint (authorization codes travel as standard <code>code</code> form parameters and are never embedded in <code>ntk</code>); adds atomic key rotation and the offline <code>cnonce</code>. Additionally, DPoP's requirement to carry two coordinated HTTP headers (<code>Authorization</code> and <code>DPoP</code>) imposes a propagation burden on every intermediary and resource server in a distributed system; EPOP eliminates this by enveloping the proof inside the token, so a single <code>Authorization</code> header carries the inseparable credential-and-proof object through all hops without requiring middleware changes. Additionally, DPoP's <code>ath</code> mechanism for opaque access tokens is coupled to HTTP request parameters, leaving opaque tokens on non-HTTP transports without a sender-constraining path. EPOP's <code>ntk</code> claim handles opaque and JWT tokens identically across all transports.</td>
           </tr>
           <tr>
             <td class="text-left" rowspan="1" colspan="1">
